@@ -1,0 +1,3 @@
+ALTER TABLE "Student"
+ADD COLUMN "monthlyFeeCents" INTEGER,
+ADD COLUMN "billingDay" INTEGER NOT NULL DEFAULT 10;

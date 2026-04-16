@@ -1,0 +1,11 @@
+node_modules
+.next
+.turbo
+coverage
+dist
+storage
+.env
+.env.production
+.env.staging
+*.log
+*.tsbuildinfo

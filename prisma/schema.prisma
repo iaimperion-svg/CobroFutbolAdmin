@@ -1,0 +1,644 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SchoolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum ContactChannel {
+  WHATSAPP
+  TELEGRAM
+  EMAIL
+}
+
+enum ChargeStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum PaymentStatus {
+  RECEIVED
+  RECONCILED
+  FLAGGED
+  REJECTED
+}
+
+enum ReceiptStatus {
+  RECEIVED
+  PROCESSING
+  MATCHED
+  AUTO_RECONCILED
+  MANUAL_REVIEW
+  REJECTED
+  FAILED
+}
+
+enum ReceiptFileType {
+  IMAGE
+  PDF
+}
+
+enum ReconciliationStatus {
+  SUGGESTED
+  CONFIRMED
+  AUTO_CONFIRMED
+  REJECTED
+}
+
+enum ReviewTaskStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum ManualDecisionType {
+  APPROVED_SUGGESTION
+  REJECTED_SUGGESTION
+  REASSIGNED
+  MANUAL_PAYMENT
+  REPROCESSED
+}
+
+enum MatchType {
+  STUDENT
+  GUARDIAN
+  CHARGE
+}
+
+enum MessageChannel {
+  WHATSAPP
+  TELEGRAM
+  INTERNAL
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  PROCESSED
+  SENT
+  FAILED
+}
+
+enum OnboardingPlan {
+  SEMILLERO
+  ACADEMIA
+  CLUB_PRO
+}
+
+enum OnboardingRequestStatus {
+  PENDING_PAYMENT
+  TELEGRAM_LINKED
+  RECEIPT_RECEIVED
+  UNDER_REVIEW
+  APPROVED_PENDING_ACTIVATION
+  ACTIVE
+  REJECTED
+  EXPIRED
+  CANCELED
+}
+
+enum OnboardingReceiptStatus {
+  RECEIVED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+model School {
+  id               String                 @id @default(cuid())
+  name             String
+  slug             String                 @unique
+  legalName        String?
+  locale           String                 @default("es-CL")
+  timezone         String                 @default("America/Santiago")
+  currency         String                 @default("CLP")
+  status           SchoolStatus           @default(ACTIVE)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  bankAccounts     BankAccount[]
+  guardians        Guardian[]
+  students         Student[]
+  charges          Charge[]
+  payments         Payment[]
+  receipts         Receipt[]
+  reconciliations  Reconciliation[]
+  messages         Message[]
+  conversations    Conversation[]
+  roles            Role[]
+  memberships      UserSchoolMembership[]
+  auditLogs        AuditLog[]
+  reviewTasks      ReviewTask[]
+  reviewNotes      ReviewNote[]
+  candidateMatches ReceiptCandidateMatch[]
+  onboardingRequests OnboardingRequest[]
+}
+
+model Conversation {
+  id             String         @id @default(cuid())
+  schoolId       String
+  channel        MessageChannel
+  externalChatId String
+  externalUserId String?
+  title          String?
+  username       String?
+  lastMessageAt  DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  school         School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@unique([schoolId, channel, externalChatId])
+  @@index([schoolId, channel, lastMessageAt])
+}
+
+model User {
+  id              String                 @id @default(cuid())
+  email           String                 @unique
+  passwordHash    String
+  fullName        String
+  status          UserStatus             @default(ACTIVE)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  memberships     UserSchoolMembership[]
+  assignedReviews ReviewTask[]           @relation("ReviewTaskAssignee")
+  auditLogs       AuditLog[]             @relation("AuditActor")
+  reviewNotes     ReviewNote[]           @relation("ReviewNoteAuthor")
+  onboardingRequests OnboardingRequest[] @relation("OnboardingCreatedUser")
+  onboardingActivationTokens OnboardingActivationToken[]
+}
+
+model UserSchoolMembership {
+  id        String           @id @default(cuid())
+  userId    String
+  schoolId  String
+  isDefault Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school    School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  roles     MembershipRole[]
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  schoolId    String
+  name        String
+  key         String
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  school      School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  memberships MembershipRole[]
+
+  @@unique([schoolId, key])
+  @@index([schoolId])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model MembershipRole {
+  membershipId String
+  roleId       String
+  membership   UserSchoolMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role         Role                 @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, roleId])
+}
+
+model Guardian {
+  id               String           @id @default(cuid())
+  schoolId         String
+  fullName         String
+  phone            String?
+  email            String?
+  nationalId       String?
+  preferredChannel ContactChannel   @default(WHATSAPP)
+  metadata         Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  school           School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students         StudentGuardian[]
+  charges          Charge[]
+  payments         Payment[]
+  receipts         Receipt[]
+  messages         Message[]
+  suggestedReviewTasks ReviewTask[]       @relation("SuggestedGuardianReviews")
+  candidateMatches ReceiptCandidateMatch[] @relation("CandidateGuardianMatches")
+
+  @@index([schoolId, fullName])
+  @@index([schoolId, phone])
+}
+
+model Student {
+  id               String                 @id @default(cuid())
+  schoolId         String
+  fullName         String
+  externalCode     String?
+  monthlyFeeCents  Int?
+  billingDay       Int                    @default(10)
+  birthDate        DateTime?
+  active           Boolean                @default(true)
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  school           School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  guardians        StudentGuardian[]
+  charges          Charge[]
+  payments         Payment[]
+  receipts         Receipt[]
+  messages         Message[]
+  reviewTasks      ReviewTask[]
+  candidateMatches ReceiptCandidateMatch[]
+
+  @@index([schoolId, fullName])
+  @@unique([schoolId, externalCode])
+}
+
+model StudentGuardian {
+  studentId    String
+  guardianId   String
+  relationship String
+  isPrimary    Boolean  @default(false)
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian     Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, guardianId])
+}
+
+model BankAccount {
+  id                  String      @id @default(cuid())
+  schoolId            String
+  bankName            String
+  accountHolder       String
+  accountNumberMasked String
+  accountType         String
+  routingNumber       String?
+  currency            String      @default("CLP")
+  isDefault           Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  school              School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  payments            Payment[]
+
+  @@index([schoolId])
+}
+
+model Charge {
+  id               String        @id @default(cuid())
+  schoolId         String
+  studentId        String
+  guardianId       String?
+  description      String
+  periodLabel      String?
+  dueDate          DateTime
+  amountCents      Int
+  outstandingCents Int
+  status           ChargeStatus  @default(PENDING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  school           School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student          Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian         Guardian?     @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  allocations      ReconciliationAllocation[]
+  candidateMatches ReceiptCandidateMatch[]
+
+  @@index([schoolId, studentId, status])
+  @@index([schoolId, dueDate])
+}
+
+model Payment {
+  id              String               @id @default(cuid())
+  schoolId        String
+  studentId       String?
+  guardianId      String?
+  bankAccountId   String?
+  receiptId       String?              @unique
+  amountCents     Int
+  paidAt          DateTime?
+  senderName      String?
+  senderReference String?
+  bankName        String?
+  source          MessageChannel       @default(INTERNAL)
+  status          PaymentStatus        @default(RECEIVED)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  school          School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student         Student?             @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  guardian        Guardian?            @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  bankAccount     BankAccount?         @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  receipt         Receipt?             @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  reconciliations Reconciliation[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, paidAt])
+}
+
+model Receipt {
+  id                   String                @id @default(cuid())
+  schoolId             String
+  guardianId           String?
+  studentId            String?
+  messageId            String?
+  channel              MessageChannel
+  status               ReceiptStatus         @default(RECEIVED)
+  fileType             ReceiptFileType
+  fileUrl              String?
+  storagePath          String?
+  originalFileName     String?
+  mimeType             String?
+  extractedText        String?
+  extractedAmountCents Int?
+  extractedPaidAt      DateTime?
+  extractedSenderName  String?
+  extractedReference   String?
+  extractedBankName    String?
+  extractionConfidence Float?
+  rawPayload           Json?
+  metadata             Json?
+  receivedAt           DateTime              @default(now())
+  processedAt          DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  school               School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  guardian             Guardian?             @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  student              Student?              @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  message              Message?              @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  payment              Payment?
+  reconciliations      Reconciliation[]
+  reviewTask           ReviewTask?
+  reviewNotes          ReviewNote[]
+  candidateMatches     ReceiptCandidateMatch[]
+
+  @@index([schoolId, status, receivedAt])
+  @@index([schoolId, guardianId])
+}
+
+model Reconciliation {
+  id          String               @id @default(cuid())
+  schoolId    String
+  paymentId   String
+  receiptId   String
+  status      ReconciliationStatus @default(SUGGESTED)
+  matchScore  Float
+  strategy    String
+  notes       String?
+  executedAt  DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  payment     Payment              @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  receipt     Receipt              @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  allocations ReconciliationAllocation[]
+  reviewTask  ReviewTask?
+
+  @@index([schoolId, status])
+  @@unique([paymentId, receiptId])
+}
+
+model ReconciliationAllocation {
+  reconciliationId String
+  chargeId         String
+  amountCents      Int
+  reconciliation   Reconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  charge           Charge         @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@id([reconciliationId, chargeId])
+}
+
+model ReviewTask {
+  id                  String            @id @default(cuid())
+  schoolId            String
+  receiptId           String            @unique
+  reconciliationId    String?           @unique
+  assignedUserId      String?
+  suggestedStudentId  String?
+  suggestedGuardianId String?
+  status              ReviewTaskStatus  @default(OPEN)
+  priority            Int               @default(2)
+  reason              String
+  decisionType        ManualDecisionType?
+  rejectionReason     String?
+  resolutionNotes     String?
+  resolutionMetadata  Json?
+  dueAt               DateTime?
+  resolvedAt          DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  school              School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  receipt             Receipt           @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  reconciliation      Reconciliation?   @relation(fields: [reconciliationId], references: [id], onDelete: SetNull)
+  assignedUser        User?             @relation("ReviewTaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  suggestedStudent    Student?          @relation(fields: [suggestedStudentId], references: [id], onDelete: SetNull)
+  suggestedGuardian   Guardian?         @relation("SuggestedGuardianReviews", fields: [suggestedGuardianId], references: [id], onDelete: SetNull)
+  notes               ReviewNote[]
+
+  @@index([schoolId, status, createdAt])
+}
+
+model ReviewNote {
+  id           String      @id @default(cuid())
+  schoolId     String
+  receiptId    String
+  reviewTaskId String?
+  authorUserId String?
+  body         String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  school       School      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  receipt      Receipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  reviewTask   ReviewTask? @relation(fields: [reviewTaskId], references: [id], onDelete: SetNull)
+  authorUser   User?       @relation("ReviewNoteAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, receiptId, createdAt])
+  @@index([reviewTaskId, createdAt])
+}
+
+model ReceiptCandidateMatch {
+  id         String    @id @default(cuid())
+  schoolId   String
+  receiptId  String
+  studentId  String?
+  guardianId String?
+  chargeId   String?
+  matchType  MatchType
+  confidence Float
+  rationale  String
+  createdAt  DateTime  @default(now())
+  school     School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  receipt    Receipt   @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  student    Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  guardian   Guardian? @relation("CandidateGuardianMatches", fields: [guardianId], references: [id], onDelete: SetNull)
+  charge     Charge?   @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, receiptId, confidence])
+}
+
+model Message {
+  id           String           @id @default(cuid())
+  schoolId     String
+  conversationId String?
+  guardianId   String?
+  studentId    String?
+  channel      MessageChannel
+  direction    MessageDirection
+  externalId   String?
+  externalChatId String?
+  externalUserId String?
+  status       MessageStatus    @default(RECEIVED)
+  senderHandle String?
+  senderName   String?
+  senderUsername String?
+  bodyText     String?
+  mediaCount   Int              @default(0)
+  rawPayload   Json?
+  sentAt       DateTime?
+  processedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  school       School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  conversation Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  guardian     Guardian?        @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  student      Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  receipts     Receipt[]
+
+  @@index([schoolId, channel, createdAt])
+  @@index([schoolId, senderHandle])
+  @@index([schoolId, channel, externalChatId, sentAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  schoolId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  school      School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  actorUser   User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model OnboardingRequest {
+  id                  String                   @id @default(cuid())
+  schoolId            String?                  @unique
+  createdUserId       String?                  @unique
+  fullName            String
+  academyName         String
+  academySlug         String?
+  email               String
+  phone               String
+  city                String?
+  notes               String?
+  plan                OnboardingPlan
+  expectedAmountCents Int
+  currency            String                   @default("CLP")
+  publicCode          String                   @unique
+  telegramStartToken  String                   @unique
+  telegramChatId      String?
+  telegramUserId      String?
+  telegramUsername    String?
+  status              OnboardingRequestStatus  @default(PENDING_PAYMENT)
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  activatedAt         DateTime?
+  expiresAt           DateTime?
+  rejectionReason     String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  school              School?                  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  createdUser         User?                    @relation("OnboardingCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+  receipts            OnboardingPaymentReceipt[]
+  activationTokens    OnboardingActivationToken[]
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@index([telegramChatId])
+}
+
+model OnboardingPaymentReceipt {
+  id                   String                  @id @default(cuid())
+  onboardingRequestId  String
+  status               OnboardingReceiptStatus @default(RECEIVED)
+  externalMessageId    String?
+  externalChatId       String?
+  externalUserId       String?
+  senderName           String?
+  senderUsername       String?
+  bodyText             String?
+  fileUrl              String?
+  storagePath          String?
+  originalFileName     String?
+  mimeType             String?
+  extractedText        String?
+  extractedAmountCents Int?
+  extractionConfidence Float?
+  rawPayload           Json?
+  metadata             Json?
+  reviewedAt           DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  onboardingRequest    OnboardingRequest       @relation(fields: [onboardingRequestId], references: [id], onDelete: Cascade)
+
+  @@index([onboardingRequestId, status, createdAt])
+  @@index([externalChatId, createdAt])
+}
+
+model OnboardingActivationToken {
+  id                  String            @id @default(cuid())
+  onboardingRequestId String
+  userId              String
+  tokenHash           String            @unique
+  expiresAt           DateTime
+  usedAt              DateTime?
+  createdAt           DateTime          @default(now())
+  onboardingRequest   OnboardingRequest @relation(fields: [onboardingRequestId], references: [id], onDelete: Cascade)
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([onboardingRequestId, expiresAt])
+  @@index([userId, expiresAt])
+}

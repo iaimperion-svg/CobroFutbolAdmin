@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="720" viewBox="0 0 1080 720" role="img" aria-label="Comprobante demo CobroFutbol">
+  <rect width="1080" height="720" fill="#f6efe5"/>
+  <rect x="72" y="60" width="936" height="600" rx="28" fill="#fffaf4" stroke="#d7b892" stroke-width="4"/>
+  <text x="108" y="144" fill="#8f2d0c" font-size="34" font-family="Segoe UI, Arial, sans-serif" font-weight="700">CobroFutbol Demo</text>
+  <text x="108" y="198" fill="#1d1c18" font-size="54" font-family="Georgia, serif" font-weight="700">Comprobante de transferencia</text>
+  <text x="108" y="262" fill="#635b4d" font-size="30" font-family="Segoe UI, Arial, sans-serif">Banco Estado</text>
+  <text x="108" y="332" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Remitente: Paula Demo</text>
+  <text x="108" y="382" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Alumno: Mateo Demo</text>
+  <text x="108" y="432" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Monto: $45.000</text>
+  <text x="108" y="482" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Fecha: 08/04/2026</text>
+  <text x="108" y="532" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Referencia: DEMO-20260408</text>
+  <text x="108" y="582" fill="#1d1c18" font-size="32" font-family="Segoe UI, Arial, sans-serif">Periodo: 2026-04</text>
+</svg>

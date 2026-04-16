@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CobroFutbol.cl - Cobra tus mensualidades en automático</title>
+  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Bebas+Neue&display=swap"
+    rel="stylesheet">
+</head>
+
+<body data-app-origin="https://cobrofutbol.tu-dominio.com">
+
+  <!-- SVG SPRITES -->
+  <svg display="none">
+    <symbol id="ic-check" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="3" d="M20 6L9 17l-5-5" />
+    </symbol>
+    <symbol id="ic-x" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="3" d="M18 6L6 18M6 6l12 12" />
+    </symbol>
+    <symbol id="ic-bolt" viewBox="0 0 24 24">
+      <path fill="currentColor"
+        d="M11 21h-1l1-7H7.5c-.5 0-.8-.3-.9-.7 0-.2 0-.4.2-.6l7-10h1l-1 7h3.5c.5 0 .8.3.9.7 0 .2 0 .4-.2.6l-7 10z" />
+    </symbol>
+    <symbol id="ic-msg" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2"
+        d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+    </symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2" d="M18 20V10M12 20V4M6 20v-6" />
+    </symbol>
+    <symbol id="ic-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
+      <path stroke="currentColor" stroke-width="2" d="M12 6v6h6" />
+    </symbol>
+    <symbol id="ic-shield" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd"
+        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 4.946-2.597 9.29-6.505 11.791a.75.75 0 01-.79 0C6.763 16.29 4.166 11.945 4.166 7.001c0-.68.056-1.35.166-2.002z"
+        clip-rule="evenodd" />
+    </symbol>
+  </svg>
+
+  <nav class="navbar" id="navbar">
+    <div class="container nav-inner">
+      <a href="#" class="logo">
+        <img src="logo_.png" alt="Escudo" class="logo-img">
+
+      </a>
+
+      <div class="nav-links">
+        <a href="#problema">El Problema</a>
+        <a href="#solucion">La Solución</a>
+        <a href="#como-funciona">Cómo Funciona</a>
+        <a href="#beneficios">Beneficios</a>
+        <a href="#precios">Precios</a>
+        <a href="#faq">FAQ</a>
+      </div>
+
+      <div class="nav-actions">
+        <a href="#precios" class="btn btn-outline">Ver Planes</a>
+        <a href="#contacto" class="btn btn-primary" data-onboarding-link><svg width="14" height="14" style="margin-right:6px;">
+            <use href="#ic-bolt" />
+          </svg>Contratar ahora</a>
+      </div>
+
+      <div class="hamburger" id="hamburger" onclick="toggleMobile()">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MOBILE NAVIGATION -->
+  <div class="mobile-nav" id="mobileNav">
+    <a href="#problema" onclick="closeMobile()">El Problema</a>
+    <a href="#solucion" onclick="closeMobile()">La Solución</a>
+    <a href="#como-funciona" onclick="closeMobile()">Cómo Funciona</a>
+    <a href="#beneficios" onclick="closeMobile()">Beneficios</a>
+    <a href="#precios" onclick="closeMobile()">Precios</a>
+    <a href="#faq" onclick="closeMobile()">FAQ</a>
+    <div style="padding: 20px;">
+      <a href="#contacto" class="btn btn-primary" style="width:100%; justify-content:center;"
+        onclick="closeMobile()" data-onboarding-link>Contratar ahora</a>
+    </div>
+  </div>
+
+  <header id="hero" class="hero-section">
+    <div class="container hero-grid">
+      <div class="hero-content reveal">
+        <div class="hero-badge">
+          <span class="p-dot"></span> Plataforma #1 para academias en Latinoamérica
+        </div>
+        <h1>COBRA TUS <br><span>MENSUALIDADES</span> <br>EN AUTOMÁTICO.</h1>
+        <p class="hero-sub">Deja de perseguir apoderados por WhatsApp. CobroFutbol valida comprobantes con IA, actualiza
+          saldos y envía recordatorios solo. <strong>Tú solo entrenas.</strong></p>
+
+        <div class="hero-btns">
+          <a href="#contacto" class="btn btn-primary btn-lg" data-onboarding-link><svg width="18" height="18" style="margin-right:8px;">
+              <use href="#ic-bolt" />
+            </svg> Contratar ahora</a>
+          <a href="#como-funciona" class="btn btn-outline btn-lg">Ver Cómo Funciona</a>
+        </div>
+
+      </div>
+
+      <div class="hero-visual reveal">
+        <div class="shield-main-wrap">
+          <img src="celular.png" alt="Escudo Gigante" class="hero-shield-img">
+
+          <div class="f-card f-card-1">
+            <div class="f-icon green"><svg width="16" height="16">
+                <use href="#ic-check" />
+              </svg></div>
+            <div class="f-text">
+              <strong>Pago validado</strong>
+              <span>Familia Rodríguez · $45.000</span>
+            </div>
+          </div>
+
+          <div class="f-card f-card-2">
+            <div class="f-icon purple">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                class="spin">
+                <path
+                  d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
+              </svg>
+            </div>
+            <div class="f-text">
+              <strong>IA procesando</strong>
+              <span>Comprobante recibido vía WhatsApp</span>
+            </div>
+          </div>
+
+          <div class="f-card f-card-3">
+            <div class="f-icon blue"><svg width="16" height="16">
+                <use href="#ic-chart" />
+              </svg></div>
+            <div class="f-text">
+              <strong>Recaudación hoy</strong>
+              <span>$1.240.000 registrados</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANK BAR -->
+    <div class="bank-bar reveal">
+      <div class="container" style="max-width: 1400px; padding: 0 40px;">
+        <div class="bank-bar-inner">
+          <div class="bank-label">
+            <span class="pulse-dot"></span>
+            <p>CONEXIÓN API INMEDIATA</p>
+          </div>
+          <div class="bank-slider-container">
+            <div class="bank-slider">
+              <!-- Set 1 -->
+              <div class="bank-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>Banco de Chile</div>
+              <div class="bank-logo"><span class="b-sant">Santander</span></div>
+              <div class="bank-logo"><span class="b-bci">BCI</span></div>
+              <div class="bank-logo"><span class="b-scotia">Scotiabank</span></div>
+              <div class="bank-logo"><span class="b-esta">BancoEstado</span></div>
+              <div class="bank-logo"><span class="b-itau">Itaú</span></div>
+              <div class="bank-logo"><strong>BICE</strong></div>
+              <!-- Set 2 -->
+              <div class="bank-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>Banco de Chile</div>
+              <div class="bank-logo"><span class="b-sant">Santander</span></div>
+              <div class="bank-logo"><span class="b-bci">BCI</span></div>
+              <div class="bank-logo"><span class="b-scotia">Scotiabank</span></div>
+              <div class="bank-logo"><span class="b-esta">BancoEstado</span></div>
+              <div class="bank-logo"><span class="b-itau">Itaú</span></div>
+              <div class="bank-logo"><strong>BICE</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="problema" class="problem-section">
+    <div class="container">
+      <div class="text-center reveal">
+        <span class="label-badge">EL PROBLEMA REAL</span>
+        <h2 class="section-title">GESTIONAR PAGOS A MANO <br><span>DESTRUYE TU TIEMPO</span></h2>
+        <p class="section-subtitle">Cada mes los dirigentes de academias enfrentan el mismo caos. Es hora de terminarlo.
+        </p>
+      </div>
+
+      <div class="pain-grid">
+        <div class="pain-card reveal">
+          <div class="p-icon" style="color: #f87171; background: rgba(239,68,68,0.1);"><svg width="24" height="24">
+              <use href="#ic-msg" />
+            </svg></div>
+          <h3>Decenas de mensajes diarios</h3>
+          <p>Apoderados enviando comprobantes en grupos, directamente y en hilos imposibles de rastrear.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="p-icon" style="color: #fbbf24; background: rgba(251,191,36,0.1);"><svg width="24" height="24"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18M9 3v18" />
+            </svg></div>
+          <h3>Planillas de Excel interminables</h3>
+          <p>Copiar, pegar, buscar nombres. Errores humanos que cuestan dinero y credibilidad.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="p-icon" style="color: #60a5fa; background: rgba(96,165,250,0.1);"><svg width="24" height="24">
+              <use href="#ic-clock" />
+            </svg></div>
+          <h3>Horas persiguiendo morosos</h3>
+          <p>Recordatorios manuales uno a uno. Conversaciones incómodas. Deudas que se acumulan.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="p-icon" style="color: #a78bfa; background: rgba(167,139,250,0.1);"><svg width="24" height="24">
+              <use href="#ic-chart" />
+            </svg></div>
+          <h3>Ingresos que se pierden</h3>
+          <p>Sin visibilidad real del estado de cobros, no sabes cuánto dinero te están debiendo ahora.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="solucion" class="solution-section">
+    <div class="container sol-grid">
+      <div class="sol-content reveal">
+        <span class="label-badge">LA SOLUCIÓN</span>
+        <h2 class="section-title">TU ACADEMIA, <br><span>EN PILOTO AUTOMÁTICO</span></h2>
+        <p class="section-desc">CobroFutbol conecta WhatsApp, Inteligencia Artificial y tu base de datos de apoderados.
+          El resultado: cobros automatizados sin esfuerzo.</p>
+
+        <div class="sol-features">
+          <div class="sol-item">
+            <div class="sol-icon"><svg width="20" height="20">
+                <use href="#ic-bolt" />
+              </svg></div>
+            <div>
+              <h4>IA que lee comprobantes</h4>
+              <p>Nuestro agente analiza cada imagen de pago, extrae el monto, fecha y RUT, y lo valida en segundos.</p>
+            </div>
+          </div>
+          <div class="sol-item">
+            <div class="sol-icon"><svg width="20" height="20">
+                <use href="#ic-msg" />
+              </svg></div>
+            <div>
+              <h4>Integración total con WhatsApp</h4>
+              <p>El apoderado envía su comprobante al número de la academia. La IA responde al instante con
+                confirmación.</p>
+            </div>
+          </div>
+          <div class="sol-item">
+            <div class="sol-icon"><svg width="20" height="20">
+                <use href="#ic-chart" />
+              </svg></div>
+            <div>
+              <h4>Dashboard en tiempo real</h4>
+              <p>Ve quién pagó, quién debe y cuánto recaudaste este mes. Todo en un solo panel, siempre actualizado.</p>
+            </div>
+          </div>
+          <div class="sol-item">
+            <div class="sol-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+              </svg></div>
+            <div>
+              <h4>Recordatorios automáticos</h4>
+              <p>Mensajes personalizados a los días previos al vencimiento. Sin intervención humana.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sol-visual reveal">
+        <div class="phone-wrap">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <span>COBROFÚTBOL</span>
+              <div class="live-dot">● EN VIVO</div>
+            </div>
+
+            <div class="phone-stats">
+              <div class="p-stat">
+                <span>RECAUDADO</span>
+                <strong>$4.8M</strong>
+              </div>
+              <div class="p-stat">
+                <span>PENDIENTE</span>
+                <strong style="color:#fbbf24;">$620K</strong>
+              </div>
+              <div class="p-stat">
+                <span>FAMILIAS</span>
+                <strong>87</strong>
+              </div>
+              <div class="p-stat">
+                <span>AL DÍA</span>
+                <strong style="color:#39D353;">94%</strong>
+              </div>
+            </div>
+
+            <div class="phone-list">
+              <p class="list-label">ÚLTIMOS PAGOS</p>
+              <div class="li">
+                <div class="li-dot green"></div> <span class="li-name">Fam. González</span> <span
+                  class="li-amt">$45.000</span> <span class="li-status">✓ verificado</span>
+              </div>
+              <div class="li">
+                <div class="li-dot green"></div> <span class="li-name">Fam. Muñoz</span> <span
+                  class="li-amt">$45.000</span> <span class="li-status">✓ verificado</span>
+              </div>
+              <div class="li">
+                <div class="li-dot yellow"></div> <span class="li-name">Fam. Torres</span> <span
+                  class="li-amt">&mdash;</span> <span class="li-status">🕒 pendiente</span>
+              </div>
+              <div class="li">
+                <div class="li-dot green"></div> <span class="li-name">Fam. López</span> <span
+                  class="li-amt">$90.000</span> <span class="li-status">✓ 2 jugadores</span>
+              </div>
+              <div class="li">
+                <div class="li-dot red"></div> <span class="li-name">Fam. Vega</span> <span
+                  class="li-amt">&mdash;</span> <span class="li-status">🔔 recordatorio</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="como-funciona" class="how-section">
+    <div class="container text-center reveal">
+      <span class="label-badge">PROCESO</span>
+      <h2 class="section-title">ASÍ DE <span>SIMPLE FUNCIONA</span></h2>
+      <p class="section-subtitle">4 pasos que transforman el caos en control total de tu academia</p>
+
+      <div class="steps-path">
+        <div class="step-node">
+          <div class="step-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <path d="M12 18h.01" />
+            </svg></div>
+          <h4>Apoderado envía comprobante</h4>
+          <p>El apoderado fotografía su voucher de pago y lo envía al número WhatsApp de la academia. Nada más.</p>
+        </div>
+        <div class="step-node">
+          <div class="step-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+            </svg></div>
+          <h4>IA extrae y valida</h4>
+          <p>Nuestro agente lee el comprobante, extrae monto, fecha y RUT, y lo cruza con la base de datos en tiempo
+            real.</p>
+        </div>
+        <div class="step-node">
+          <div class="step-circle"><svg width="24" height="24">
+              <use href="#ic-bolt" />
+            </svg></div>
+          <h4>Confirmación instantánea</h4>
+          <p>El apoderado y el administrador reciben confirmación automática. El saldo se actualiza al segundo.</p>
+        </div>
+        <div class="step-node">
+          <div class="step-circle"><svg width="24" height="24">
+              <use href="#ic-chart" />
+            </svg></div>
+          <h4>Dashboard siempre al día</h4>
+          <p>Tú ves el estado de todos los pagos en un panel limpio. Sin llamar, sin buscar, sin Excel.</p>
+        </div>
+      </div>
+
+      <div class="trust-footer">
+        <p>MÁS DE 300 ACADEMIAS YA AUTOMATIZARON SUS COBROS</p>
+        <div class="trust-logos">
+          <div class="log-circle" style="background: #1e3a8a;">NK</div> <span>Ñublense Kids</span>
+          <div class="log-circle" style="background: #991b1b;">SF</div> <span>Club San Fernando</span>
+          <div class="log-circle" style="background: #065f46;">ES</div> <span>Estrella del Sur</span>
+          <div class="log-circle" style="background: #92400e;">PF</div> <span>Pelota Sur FC</span>
+          <div class="log-circle" style="background: #3730a3;">TM</div> <span>TalentMakers</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="beneficios" class="benefits-section">
+    <div class="container text-center reveal">
+      <span class="label-badge">BENEFICIOS</span>
+      <h2 class="section-title">LO QUE GANAS CON <br><span>COBROFÚTBOL</span></h2>
+
+      <div class="ben-grid">
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24">
+              <use href="#ic-clock" />
+            </svg></div>
+          <h3>Recuperas 10+ horas al mes</h3>
+          <p>El tiempo que gastas en gestión de pagos se reduce a cero. Dedícalo a entrenar, crecer y disfrutar.</p>
+        </div>
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24">
+              <use href="#ic-chart" />
+            </svg></div>
+          <h3>Tasa de cobro +40%</h3>
+          <p>Los recordatorios automáticos y la facilidad de pago disparan la recaudación desde el primer mes.</p>
+        </div>
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24">
+              <use href="#ic-shield" />
+            </svg></div>
+          <h3>Cero errores humanos</h3>
+          <p>La IA no confunde montos, no pierde comprobantes. Exactitud del 99,9%.</p>
+        </div>
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+            </svg></div>
+          <h3>Apoderados felices</h3>
+          <p>Respuesta inmediata 24/7. Experiencia profesional que genera confianza y reduce conflictos.</p>
+        </div>
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg></div>
+          <h3>Visibilidad total</h3>
+          <p>Filtra por categoría, deuda, mes o familia. Exporta reportes en segundos para directivos.</p>
+        </div>
+        <div class="ben-card reveal">
+          <div class="b-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg></div>
+          <h3>Escala sin contratar</h3>
+          <p>Pasa de 50 a 500 familias sin agregar un solo administrativo. La plataforma crece contigo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="precios" class="pricing-section">
+    <div class="container text-center reveal">
+      <span class="label-badge">PLANES Y PRECIOS</span>
+      <h2 class="section-title">LA MEJOR INVERSIÓN <br><span>PARA TU ACADEMIA</span></h2>
+      <p class="section-subtitle">Elige el plan que se adapte al tamaño de tu escuela hoy.</p>
+
+      <div class="pricing-toggle-wrap">
+        <span id="ptLabelMonth" class="active">Mensual</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pricingToggle" onchange="togglePricing()">
+          <span class="slider"></span>
+        </label>
+        <span id="ptLabelYear">Anual (Ahorra un 20%)</span>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Semillero -->
+        <div class="price-card reveal">
+          <div class="price-header">
+            <h3>Semillero</h3>
+            <p>Para academias que recién empiezan su crecimiento.</p>
+            <div class="price">
+              <div style="display: flex; flex-direction: column;">
+                <span
+                  style="font-size: .85rem; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 4px;">IGUAL
+                  AL VALOR DE</span>
+                <span class="amount" data-monthly="1 alumno" data-yearly="1 alumno"
+                  style="font-family: var(--font-display); font-size: 2.8rem; line-height: 1; color: var(--white);">1
+                  alumno</span>
+                <span style="color: var(--green-light); font-weight: 600; font-size: 0.85rem; margin-top: 8px;">de tu
+                  propia academia al mes</span>
+              </div>
+            </div>
+            <p class="uf-hint" style="visibility: hidden; margin-top: 2px;">-</p>
+          </div>
+          <div class="price-features">
+            <ul>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Hasta 100 alumnos</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> IA Validadora por Telegram</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Dashboard de conciliación</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Soporte por email</li>
+            </ul>
+          </div>
+          <a href="#contacto" class="btn btn-outline" style="width: 100%" data-onboarding-link>Contratar Semillero</a>
+        </div>
+
+        <!-- Academia -->
+        <div class="price-card popular reveal">
+          <div class="popular-badge">MÁS ELEGIDO</div>
+          <div class="price-header">
+            <h3>Academia</h3>
+            <p>Control total para escuelas en crecimiento sostenido.</p>
+            <div class="price">
+              <span class="currency">UF</span>
+              <span class="amount" data-monthly="1.47" data-yearly="1.18">1,47</span>
+              <span class="period">/mes</span>
+            </div>
+          </div>
+          <div class="price-features">
+            <ul>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Hasta 250 alumnos</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> IA Validadora Telegram y WhatsApp</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Recordatorios por Telegram</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Dashboard de gestión completo</li>
+            </ul>
+          </div>
+          <a href="#contacto" class="btn btn-primary" style="width: 100%" data-onboarding-link>Contratar Academia</a>
+        </div>
+
+        <!-- Club Pro -->
+        <div class="price-card reveal">
+          <div class="price-header">
+            <h3>Club Pro</h3>
+            <p>Solución corporativa para grandes instituciones.</p>
+            <div class="price">
+              <span class="currency">UF</span>
+              <span class="amount" data-monthly="2.11" data-yearly="1.69">2,11</span>
+              <span class="period">/mes</span>
+            </div>
+          </div>
+          <div class="price-features">
+            <ul>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> +250 alumnos</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Todo lo del plan Academia</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Múltiples sucursales</li>
+              <li><svg width="18" height="18" class="text-green">
+                  <use href="#ic-check" />
+                </svg> Integración con ERP de bancos</li>
+            </ul>
+          </div>
+          <a href="#contacto" class="btn btn-outline" style="width: 100%" data-onboarding-link>Contratar Club Pro</a>
+        </div>
+      </div>
+
+      <!-- Pre-calentamiento -->
+      <div class="precalentamiento-card reveal">
+        <div class="pre-left">
+          <span class="pre-badge">SETUP / ONBOARDING</span>
+          <h3>Plan Pre-calentamiento</h3>
+          <p>Implementación guiada, carga de tu base de datos y capacitación técnica para tu equipo directivo.</p>
+        </div>
+        <div class="pre-right">
+          <div class="pre-price">1 UF <span>pago único</span></div>
+          <a href="#contacto" class="btn btn-outline">Consultar</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="faq-section">
+    <div class="container pb-120">
+      <div class="text-center reveal">
+        <span class="label-badge">FAQ</span>
+        <h2 class="section-title">PREGUNTAS <span>FRECUENTES</span></h2>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item reveal">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Qué pasa si un apoderado se equivoca en el monto?
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-a">
+            <p>La IA detecta inmediatamente la discrepancia y notifica al apoderado vía WhatsApp sobre el saldo
+              restante, además de marcar el pago como "Parcial" en tu dashboard.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Tienen acceso a mi cuenta bancaria?
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-a">
+            <p>No. CobroFútbol funciona validando los comprobantes (fotos o PDFs) que envían los apoderados. Tú sigues
+              controlando los ingresos y el banco, nosotros te damos la información cruzada y auditada.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <div class="faq-q" onclick="toggleFaq(this)">
+            ¿Funciona para escuelas con hermanos/múltiples cobros?
+            <span class="faq-icon">+</span>
+          </div>
+          <div class="faq-a">
+            <p>Absolutamente. Puedes agrupar alumnos por RUT de apoderado. Si una familia debe pagar por dos hijos, la
+              IA espera el comprobante consolidado y actualiza ambas deudas.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contacto" class="contact-section">
+    <div class="container contact-grid">
+      <div class="contact-info reveal">
+        <span class="label-badge">CONTÁCTANOS</span>
+        <h2 class="section-title">¿LISTO PARA AUTOMATIZAR <br><span>TU ACADEMIA?</span></h2>
+        <p class="section-subtitle" style="margin: 0 0 40px 0;">Déjanos tus datos y un especialista te mostrará cómo
+          CobroFútbol se adapta a tu escuela en una demo de 15 minutos.</p>
+
+        <ul class="contact-list">
+          <li>✓ Demo gratuita y personalizada</li>
+          <li>✓ Evaluación de tu base de datos</li>
+          <li>✓ Propuesta económica a medida</li>
+        </ul>
+      </div>
+
+      <div class="contact-form-wrap reveal">
+        <form id="contactForm" onsubmit="submitForm(event)">
+          <div class="form-group">
+            <label>Nombre y Apellido</label>
+            <input type="text" id="fn_name" required placeholder="Ej. Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label>Nombre de la Academia</label>
+            <input type="text" id="fn_ac" required placeholder="Ej. Club Deportivo Real">
+          </div>
+          <div class="form-group">
+            <label>N° de Alumnos Aprox.</label>
+            <select id="fn_alumnos" required>
+              <option value="">Selecciona un rango</option>
+              <option value="1-50">1 - 50</option>
+              <option value="51-150">51 - 150</option>
+              <option value="151-300">151 - 300</option>
+              <option value="301+">Más de 300</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>WhatsApp / Teléfono</label>
+            <input type="tel" id="fn_phone" required placeholder="+56 9...">
+          </div>
+          <button type="submit" class="btn btn-primary" id="btnSubmit"
+            style="width: 100%; justify-content: center; margin-top: 10px;">Solicitar Demo</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <img src="logo_.png" alt="Escudo CobroFutbol" style="height:48px; margin-bottom: 16px;">
+
+        <p>Automatización de cobros con Inteligencia Artificial para el fútbol formativo chileno.</p>
+      </div>
+      <div>
+        <h4 style="color:#fff; margin-bottom: 16px;">Plataforma</h4>
+        <ul class="footer-links">
+          <li><a href="#como-funciona">Cómo Funciona</a></li>
+          <li><a href="#beneficios">Beneficios</a></li>
+          <li><a href="#precios">Precios</a></li>
+          <li><a href="#">Seguridad</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 style="color:#fff; margin-bottom: 16px;">Compañía</h4>
+        <ul class="footer-links">
+          <li><a href="#">Sobre Nosotros</a></li>
+          <li><a href="#">Contacto</a></li>
+          <li><a href="#">Términos y Condiciones</a></li>
+          <li><a href="#">Políticas de Privacidad</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container">
+      <div class="footer-bottom">
+        <p>&copy; 2026 CobroFútbol Chile. Todos los derechos reservados.</p>
+        <div class="social-icons">
+          <!-- WSP y IG -->
+          <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M11.944 0A12 12 0 000 12a12 12 0 001.6 6l-1.6 6 6.1-1.6A12 12 0 0012 24a12 12 0 0012-12 12 12 0 00-12-12zm6.6 17.3c-.3.8-1.5 1.5-2.2 1.6-.6.1-1.4.2-2.3-.1-1.1-.3-2.5-1-3.6-2.1-1.4-1.4-2.3-3.2-2.6-3.7-.3-.5-.6-1.5-.6-2.5s.5-1.9.8-2.2c.2-.3.6-.4.9-.4h.3c.2 0 .5-.1.8.6.3.7.8 2.1.9 2.3.1.2.1.5 0 .7s-.2.4-.4.6c-.2.2-.4.4-.5.6-.2.2-.4.5-.2.9.2.3.9 1.5 2 2.4.9.8 1.9 1 2.2 1.2.3.1.5.1.8-.1.2-.2.8-.9 1-1.3.3-.3.5-.3.8-.1.3.1 1.8.8 2.1 1 .3.1.4.2.5.4.1.3.1.9-.2 1.7z" />
+            </svg></a>
+          <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+            </svg></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <button class="wsp-btn" onclick="window.open('https://wa.me/56912345678')">
+    <svg width="30" height="30" fill="currentColor" viewBox="0 0 24 24">
+      <path
+        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  </button>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
