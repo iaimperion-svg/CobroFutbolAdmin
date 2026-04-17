@@ -7,5 +7,10 @@ storage
 .env
 .env.production
 .env.staging
+# Env files adicionales (Next.js / Node)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.log
 *.tsbuildinfo
