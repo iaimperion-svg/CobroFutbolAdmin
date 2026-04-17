@@ -13,8 +13,8 @@ CobroFutbol es un MVP SaaS multi-tenant para escuelas de futbol que automatiza l
 
 ## Arquitectura
 
-La arquitectura detallada y la estructura del repo estan en [docs/architecture.md](C:\Users\mauro\source\repos\CobroFutbol\docs\architecture.md).
-La configuracion paso a paso de Telegram esta en [docs/telegram-integration.md](C:\Users\mauro\source\repos\CobroFutbol\docs\telegram-integration.md).
+La arquitectura detallada y la estructura del repo estan en [docs/architecture.md](docs/architecture.md).
+La configuracion paso a paso de Telegram esta en [docs/telegram-integration.md](docs/telegram-integration.md).
 
 ## Primer arranque
 
