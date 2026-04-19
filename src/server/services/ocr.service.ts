@@ -79,24 +79,26 @@ async function readTextFromStoredImage(storagePath: string) {
   }
 }
 
-export async function extractReceiptText(receiptId: string) {
-  const receipt = await prisma.receipt.findUnique({
-    where: { id: receiptId },
-    include: { message: true }
-  });
-
-  if (!receipt) {
-    throw new Error("Comprobante no encontrado");
-  }
-
-  const bodyText = normalizeExtractedText(receipt.message?.bodyText ?? "");
-  const previousExtractedText = normalizeExtractedText(receipt.extractedText ?? "");
-  const filename = (receipt.originalFileName ?? "").trim();
+async function extractTextFromStoredReceipt(input: {
+  storagePath: string | null;
+  mimeType: string | null;
+  originalFileName: string | null;
+  rawPayload: unknown;
+  bodyText: string | null;
+  previousExtractedText: string | null;
+  previousExtractionConfidence: number | null;
+}) {
+  const bodyText = normalizeExtractedText(input.bodyText ?? "");
+  const previousExtractedText = normalizeExtractedText(input.previousExtractedText ?? "");
+  const filename = (input.originalFileName ?? "").trim();
   const payloadText = normalizeExtractedText(
-    flattenSearchablePayloadText(receipt.rawPayload).join("\n")
+    flattenSearchablePayloadText(input.rawPayload).join("\n")
   );
-  const ocrFromImage = canRunImageOcr(receipt)
-    ? await readTextFromStoredImage(receipt.storagePath as string)
+  const ocrFromImage = canRunImageOcr({
+    storagePath: input.storagePath,
+    mimeType: input.mimeType
+  })
+    ? await readTextFromStoredImage(input.storagePath as string)
     : null;
 
   const mergedText = normalizeExtractedText(
@@ -110,11 +112,71 @@ export async function extractReceiptText(receiptId: string) {
   if (bodyText.length > 10) confidence = Math.max(confidence, 0.52);
   if (payloadText.length > 10) confidence = Math.max(confidence, 0.46);
   if (ocrFromImage) confidence = Math.max(confidence, ocrFromImage.confidence);
-  if (previousExtractedText.length > 10) confidence = Math.max(confidence, receipt.extractionConfidence ?? 0.48);
+  if (previousExtractedText.length > 10) {
+    confidence = Math.max(confidence, input.previousExtractionConfidence ?? 0.48);
+  }
   if (mergedText.length > 24) confidence = Math.max(confidence, 0.56);
 
   return {
     text: mergedText,
     confidence
   };
+}
+
+export type StoredReceiptTextInput = Parameters<typeof extractTextFromStoredReceipt>[0];
+
+export async function extractReceiptText(receiptId: string) {
+  const receipt = await prisma.receipt.findUnique({
+    where: { id: receiptId },
+    include: { message: true }
+  });
+
+  if (!receipt) {
+    throw new Error("Comprobante no encontrado");
+  }
+
+  return extractTextFromStoredReceipt({
+    storagePath: receipt.storagePath,
+    mimeType: receipt.mimeType,
+    originalFileName: receipt.originalFileName,
+    rawPayload: receipt.rawPayload,
+    bodyText: receipt.message?.bodyText ?? null,
+    previousExtractedText: receipt.extractedText,
+    previousExtractionConfidence: receipt.extractionConfidence
+  });
+}
+
+export async function extractOnboardingReceiptText(
+  receiptId: string,
+  override?: Partial<StoredReceiptTextInput>
+) {
+  if (override) {
+    return extractTextFromStoredReceipt({
+      storagePath: override.storagePath ?? null,
+      mimeType: override.mimeType ?? null,
+      originalFileName: override.originalFileName ?? null,
+      rawPayload: override.rawPayload ?? null,
+      bodyText: override.bodyText ?? null,
+      previousExtractedText: override.previousExtractedText ?? null,
+      previousExtractionConfidence: override.previousExtractionConfidence ?? null
+    });
+  }
+
+  const receipt = await prisma.onboardingPaymentReceipt.findUnique({
+    where: { id: receiptId }
+  });
+
+  if (!receipt) {
+    throw new Error("Comprobante de onboarding no encontrado");
+  }
+
+  return extractTextFromStoredReceipt({
+    storagePath: receipt.storagePath,
+    mimeType: receipt.mimeType,
+    originalFileName: receipt.originalFileName,
+    rawPayload: receipt.rawPayload,
+    bodyText: receipt.bodyText,
+    previousExtractedText: receipt.extractedText,
+    previousExtractionConfidence: receipt.extractionConfidence
+  });
 }

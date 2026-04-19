@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { BrandMark } from "@/components/brand/brand-mark";
 import type { SessionPayload } from "@/server/auth/session";
@@ -13,43 +14,37 @@ const links = [
   {
     href: "/app",
     label: "Panel",
-    description: "Caja y rendimiento",
-    summary: "Lectura general de ingresos, deuda y automatizacion.",
+    description: "Resumen del mes",
     icon: "panel"
   },
   {
     href: "/app/reviews/monthly",
-    label: "Revision mensual",
-    description: "Deuda por categoria",
-    summary: "Lectura mensual de deuda, categorias y consolidacion por alumno.",
+    label: "Cobro mensual",
+    description: "Categorías y saldo",
     icon: "mensual"
   },
   {
     href: "/app/reviews",
-    label: "Revision manual",
-    description: "Casos tacticos",
-    summary: "Validacion humana para comprobantes ambiguos o sensibles.",
+    label: "Revisión de pago",
+    description: "Resolución manual",
     icon: "revision"
-  },
-  {
-    href: "/app/students",
-    label: "Alumnos",
-    description: "Plantel y apoderados",
-    summary: "Base academica con foco financiero y administrativo.",
-    icon: "alumnos"
   },
   {
     href: "/app/receipts",
     label: "Comprobantes",
-    description: "OCR y conciliacion",
-    summary: "Radar operativo de cargas, extraccion y decisiones.",
+    description: "Ingreso y trazabilidad",
     icon: "comprobantes"
+  },
+  {
+    href: "/app/students",
+    label: "Alumnos",
+    description: "Base operativa",
+    icon: "alumnos"
   }
 ] satisfies Array<{
   href: Route;
   label: string;
   description: string;
-  summary: string;
   icon: NavIcon;
 }>;
 
@@ -93,6 +88,10 @@ export function AppShell(props: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isDashboardHome = pathname === "/app";
+  const isLinkActive = (href: Route) =>
+    href === "/app" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
   const academyName = props.session.schoolSlug
     .split("-")
     .map((segment) => `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)
@@ -100,12 +99,36 @@ export function AppShell(props: {
   const currentLink =
     [...links]
       .sort((left, right) => right.href.length - left.href.length)
-      .find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`)) ??
+      .find((link) => isLinkActive(link.href)) ??
     links[0]!;
 
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isSidebarOpen]);
+
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
+    <div className={`app-layout${isSidebarOpen ? " sidebar-open" : ""}`}>
+      <button
+        type="button"
+        className={`app-shell-backdrop${isSidebarOpen ? " active" : ""}`}
+        aria-label="Cerrar menú"
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
+      <aside className={`sidebar${isSidebarOpen ? " open" : ""}`} id="app-sidebar">
         <div className="sidebar-top">
           <BrandMark compact variant="dark" />
           <div className="sidebar-context">
@@ -118,15 +141,16 @@ export function AppShell(props: {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" id="app-sidebar-navigation">
           {links.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const isActive = currentLink.href === link.href;
 
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 className={`nav-link${isActive ? " active" : ""}`}
+                aria-current={isActive ? "page" : undefined}
               >
                 <div className="nav-link-content">
                   <span className="nav-icon" aria-hidden="true">
@@ -149,16 +173,36 @@ export function AppShell(props: {
 
       <main className="app-main">
         <header className="shell-header shell-header-minimal">
-          <div className="shell-header-top">
-            <div className="stack" style={{ gap: 8 }}>
-              <span className="eyebrow">Centro operativo</span>
-              <h2 className="shell-title">{currentLink.label}</h2>
-            </div>
-            <div className="shell-header-actions">
-              <LogoutButton />
+          <div className="shell-mobile-row">
+            <button
+              type="button"
+              className="shell-mobile-menu-button"
+              aria-label="Abrir menú"
+              aria-expanded={isSidebarOpen ? "true" : "false"}
+              aria-controls="app-sidebar"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+
+            <div className="shell-mobile-copy">
+              <span className="eyebrow">CobroFutbol</span>
+              <h2 className="shell-title shell-title-mobile">
+                {isDashboardHome ? "Panel" : currentLink.label}
+              </h2>
             </div>
           </div>
-          <p className="section-description compact">{currentLink.summary}</p>
+
+          {isDashboardHome ? (
+            <h2 className="shell-title shell-title-desktop">Panel</h2>
+          ) : (
+            <div className="stack shell-desktop-copy" style={{ gap: 8 }}>
+              <span className="eyebrow">Academia</span>
+              <h2 className="shell-title shell-title-desktop">{currentLink.label}</h2>
+            </div>
+          )}
         </header>
         {props.children}
       </main>

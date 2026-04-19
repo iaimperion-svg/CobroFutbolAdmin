@@ -544,8 +544,8 @@ export async function processReceiptReconciliation(
       receipt,
       body:
         topCandidate && topCandidate.confidence >= env.MANUAL_REVIEW_THRESHOLD
-          ? "Recibimos tu comprobante. Quedo en revision y nuestro equipo lo validara."
-          : "Recibimos tu comprobante, pero no pudimos identificar el pago automaticamente. Nuestro equipo lo revisara."
+          ? "Recibimos tu comprobante y detectamos un pago posible, pero necesita confirmacion. Ya quedo en revision y te avisaremos por este mismo chat cuando termine la validacion."
+          : "Recibimos tu comprobante, pero con la informacion visible no pudimos identificar el pago automaticamente. Ya lo derivamos a revision manual y te avisaremos por este mismo chat cuando quede validado. No necesitas reenviarlo por ahora."
     });
   }
 

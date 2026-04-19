@@ -151,20 +151,20 @@ export function StudentUpsertForm(props: {
     const monthlyFeeValue = Number(monthlyFee);
     if (!Number.isInteger(monthlyFeeValue) || monthlyFeeValue <= 0) {
       setTone("danger");
-      setMessage("Debes ingresar una cuota mensual valida en pesos.");
+      setMessage("Debes ingresar una cuota mensual válida en pesos.");
       return false;
     }
 
     const billingDayValue = Number(billingDay);
     if (!Number.isInteger(billingDayValue) || billingDayValue < 1 || billingDayValue > 28) {
       setTone("danger");
-      setMessage("El dia de cobro debe estar entre 1 y 28.");
+      setMessage("El día de cobro debe estar entre 1 y 28.");
       return false;
     }
 
     if (guardianRelationship.trim().length < 2) {
       setTone("danger");
-      setMessage("Debes indicar la relacion del apoderado.");
+      setMessage("Debes indicar la relación del apoderado.");
       return false;
     }
 
@@ -177,19 +177,19 @@ export function StudentUpsertForm(props: {
     if (guardianMode === "upsert") {
       if (guardianFullName.trim().length < 3) {
         setTone("danger");
-        setMessage("El apoderado principal debe tener un nombre valido.");
+        setMessage("El apoderado principal debe tener un nombre válido.");
         return false;
       }
 
       if (!guardianPhone.trim() && !guardianEmail.trim()) {
         setTone("danger");
-        setMessage("El apoderado debe tener al menos telefono o correo.");
+        setMessage("El apoderado debe tener al menos teléfono o correo.");
         return false;
       }
 
       if (guardianPhone.trim() && !/^\+?[0-9()\s-]{8,20}$/.test(guardianPhone.trim())) {
         setTone("danger");
-        setMessage("Ingresa un telefono valido para el apoderado.");
+        setMessage("Ingresa un teléfono válido para el apoderado.");
         return false;
       }
 
@@ -198,7 +198,7 @@ export function StudentUpsertForm(props: {
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail.trim().toLowerCase())
       ) {
         setTone("danger");
-        setMessage("Ingresa un correo valido para el apoderado.");
+        setMessage("Ingresa un correo válido para el apoderado.");
         return false;
       }
     }
@@ -279,7 +279,7 @@ export function StudentUpsertForm(props: {
         <h2 className="card-title">{isEditing ? "Editar alumno" : "Registrar alumno"}</h2>
         <p className="section-description compact">
           El alumno necesita un apoderado principal operativo. Los cargos y la deuda se calculan
-          desde cobranzas, por eso aqui se muestran como lectura y no como campos editables.
+          desde cobranzas, por eso aquí se muestran como lectura y no como campos editables.
         </p>
       </div>
 
@@ -297,7 +297,7 @@ export function StudentUpsertForm(props: {
                 ? formatCurrencyFromCents(editingStudent.monthlyFeeCents)
                 : "Sin definir"}
             </strong>
-            Vence el dia {editingStudent.billingDay} de cada mes.
+            Vence el día {editingStudent.billingDay} de cada mes.
           </div>
           <div className="student-summary-card">
             <span className="stat-chip-label">Cargos vigentes</span>
@@ -307,7 +307,7 @@ export function StudentUpsertForm(props: {
           <div className="student-summary-card">
             <span className="stat-chip-label">Deuda abierta</span>
             <strong>{formatCurrencyFromCents(readOutstanding(editingStudent))}</strong>
-            Calculada automaticamente desde los cargos.
+            Calculada automáticamente desde los cargos.
           </div>
         </div>
       ) : null}
@@ -324,7 +324,7 @@ export function StudentUpsertForm(props: {
               required
             />
             <span className="helper-text">
-              Usa nombre y apellido para mantener el listado alineado y facil de buscar.
+              Usa nombre y apellido para mantener el listado alineado y fácil de buscar.
             </span>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -342,7 +342,7 @@ export function StudentUpsertForm(props: {
             </span>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label htmlFor="student-billing-day">Dia de cobro</label>
+            <label htmlFor="student-billing-day">Día de cobro</label>
             <input
               id="student-billing-day"
               inputMode="numeric"
@@ -352,20 +352,20 @@ export function StudentUpsertForm(props: {
               required
             />
             <span className="helper-text">
-              Dia del mes en que vence la mensualidad. Usa un valor entre 1 y 28.
+              Día del mes en que vence la mensualidad. Usa un valor entre 1 y 28.
             </span>
           </div>
         </div>
 
         <div className="field" style={{ marginBottom: 0 }}>
-          <label htmlFor="student-notes">Categoria</label>
+          <label htmlFor="student-notes">Categoría</label>
           <select
             id="student-notes"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             required
           >
-            <option value="">Selecciona una categoria</option>
+            <option value="">Selecciona una categoría</option>
             {categoryOptions.map((category) => (
               <option key={category} value={category}>
                 {category}
@@ -373,7 +373,7 @@ export function StudentUpsertForm(props: {
             ))}
           </select>
           <span className="helper-text">
-            Selecciona la categoria del alumno para mantener el registro ordenado.
+            Selecciona la categoría del alumno para mantener el registro ordenado.
           </span>
         </div>
 
@@ -383,7 +383,7 @@ export function StudentUpsertForm(props: {
             <h3 className="card-title student-subtitle">Responsable de contacto y cobranza</h3>
             <p className="section-description compact">
               Cada alumno debe quedar asociado a un apoderado principal para contacto y
-              conciliacion de pagos.
+              conciliación de pagos.
             </p>
           </div>
 
@@ -412,7 +412,7 @@ export function StudentUpsertForm(props: {
 
           <div className="form-grid">
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="guardian-relationship">Relacion con el alumno</label>
+              <label htmlFor="guardian-relationship">Relación con el alumno</label>
               <select
                 id="guardian-relationship"
                 value={guardianRelationship}
@@ -461,7 +461,7 @@ export function StudentUpsertForm(props: {
               <div className="student-existing-guardian">
                 <strong>{selectedExistingGuardian.fullName}</strong>
                 <span>
-                  {selectedExistingGuardian.phone || "Sin telefono"} ·{" "}
+                  {selectedExistingGuardian.phone || "Sin teléfono"} ·{" "}
                   {selectedExistingGuardian.email || "Sin correo"}
                 </span>
                 <span>
@@ -474,7 +474,7 @@ export function StudentUpsertForm(props: {
           ) : (
             <div className="form-grid">
               <div className="field" style={{ marginBottom: 0 }}>
-                <label htmlFor="guardian-phone">Telefono</label>
+                <label htmlFor="guardian-phone">Teléfono</label>
                 <input
                   id="guardian-phone"
                   value={guardianPhone}

@@ -1,63 +1,41 @@
-import { BrandMark } from "@/components/brand/brand-mark";
-import { OnboardingRequestForm } from "@/components/onboarding/onboarding-request-form";
+import { OnboardingPlan } from "@prisma/client";
+import { OnboardingPublicFlow } from "@/components/onboarding/onboarding-public-flow";
 
-export default function OnboardingPage() {
+type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
+
+function parseRequestedPlan(value: string | string[] | undefined) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  switch (value.trim().toUpperCase()) {
+    case OnboardingPlan.SEMILLERO:
+      return OnboardingPlan.SEMILLERO;
+    case OnboardingPlan.ACADEMIA:
+      return OnboardingPlan.ACADEMIA;
+    case OnboardingPlan.CLUB_PRO:
+      return OnboardingPlan.CLUB_PRO;
+    default:
+      return undefined;
+  }
+}
+
+export default async function OnboardingPage(props: { searchParams?: SearchParamsInput }) {
+  const params = props.searchParams ? await props.searchParams : {};
+  const initialPlan = parseRequestedPlan(params.plan);
+
   return (
-    <main className="login-wrap">
-      <section className="login-grid onboarding-grid">
-        <article className="login-card stack">
-          <BrandMark
-            src="/brand/logo_.png"
-            trimTransparentPadding={false}
-            subtitle="Alta guiada para academias y clubes"
-          />
-          <span className="eyebrow">Nuevo onboarding</span>
-          <h1 className="app-title">Pasa de interes comercial a portal activo en un flujo claro.</h1>
-          <p className="muted">
-            Creamos la solicitud, validamos tu comprobante por Telegram y te enviamos un enlace
-            temporal para definir la contrasena de acceso.
-          </p>
-
-          <div className="badge-row">
-            <div className="stat-chip">
-              <strong>1.</strong>
-              Solicitud y datos del director.
-            </div>
-            <div className="stat-chip">
-              <strong>2.</strong>
-              Comprobante por Telegram.
-            </div>
-            <div className="stat-chip">
-              <strong>3.</strong>
-              Activacion por correo.
-            </div>
-          </div>
-
-          <div className="app-card stack" style={{ padding: 22 }}>
-            <span className="eyebrow">Que queda listo</span>
-            <div className="performance-item">
-              <div>
-                <strong>Academia creada</strong>
-                <span className="muted">Tenant y usuario administrador preparados.</span>
-              </div>
-            </div>
-            <div className="performance-item">
-              <div>
-                <strong>Acceso seguro</strong>
-                <span className="muted">Enlace temporal de 1 hora para definir contrasena.</span>
-              </div>
-            </div>
-            <div className="performance-item">
-              <div>
-                <strong>Entrada operativa</strong>
-                <span className="muted">Listo para entrar al panel apenas completes la activacion.</span>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <OnboardingRequestForm />
-      </section>
+    <main className="login-wrap onboarding-stage onboarding-stage-public">
+      <div className="onboarding-public-scene" aria-hidden="true">
+        <div className="onboarding-public-grass" />
+        <div className="onboarding-public-pitch">
+          <span className="onboarding-public-half-line" />
+          <span className="onboarding-public-center-circle" />
+          <span className="onboarding-public-box onboarding-public-box-left" />
+          <span className="onboarding-public-box onboarding-public-box-right" />
+        </div>
+      </div>
+      <OnboardingPublicFlow initialPlan={initialPlan} />
     </main>
   );
 }

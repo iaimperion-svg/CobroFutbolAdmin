@@ -1,5 +1,4 @@
 import { EmptyState } from "@/components/ui/empty-state";
-import { SectionHeader } from "@/components/ui/section-header";
 import {
   StatusBadge,
   getConfidenceMeta,
@@ -64,12 +63,53 @@ function formatDateTime(value: Date | string) {
   }).format(new Date(value));
 }
 
+function getChannelLabel(channel: string) {
+  switch (channel) {
+    case "TELEGRAM":
+      return "Telegram";
+    case "WHATSAPP":
+      return "WhatsApp";
+    case "EMAIL":
+      return "Email";
+    default:
+      return "Interno";
+  }
+}
+
+function getCategoryLabel(notes: string | null | undefined) {
+  const normalized = (notes ?? "").trim();
+
+  if (!normalized) {
+    return "Sin categoría";
+  }
+
+  return normalized
+    .replace(/^categoria\s+/i, "")
+    .trim()
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getReviewStatusLabel(status: string) {
+  switch (status) {
+    case "OPEN":
+    case "IN_PROGRESS":
+      return "En revisión";
+    case "RESOLVED":
+      return "Resuelta";
+    default:
+      return status.replaceAll("_", " ").toLowerCase();
+  }
+}
+
 export default async function ReviewsPage(props: { searchParams?: SearchParamsInput }) {
   const session = await requireSession();
   const reviews = await listReviewTasks(session.schoolId);
   const params = props.searchParams ? await props.searchParams : {};
   const query = readTextParam(params.q).toLowerCase();
   const priorityFilter = readTextParam(params.priority);
+  const statusFilter = readTextParam(params.status);
 
   const filteredReviews = reviews.filter((review) => {
     const matchesQuery =
@@ -83,61 +123,61 @@ export default async function ReviewsPage(props: { searchParams?: SearchParamsIn
       priorityFilter === "" ||
       (priorityFilter === "alta" && review.priority <= 1) ||
       (priorityFilter === "seguimiento" && review.priority === 2);
+    const matchesStatus = statusFilter === "" || review.status === statusFilter;
 
-    return matchesQuery && matchesPriority;
+    return matchesQuery && matchesPriority && matchesStatus;
   });
 
   const reviewsWithSuggestions = reviews.filter(
     (review) => review.receipt.candidateMatches.length > 0
   ).length;
+  const highPriorityCount = reviews.filter((review) => review.priority === 1).length;
+  const withoutSuggestionCount = reviews.filter(
+    (review) => review.receipt.candidateMatches.length === 0
+  ).length;
 
   return (
     <section className="stack reviews-screen">
-      <div className="quick-filters review-mode-switch" aria-label="Tipos de revision">
+      <div className="quick-filters review-mode-switch" aria-label="Vistas de cobranza">
         <a className="quick-filter active" href="/app/reviews">
-          Revision manual
+          Revisión de pago
         </a>
         <a className="quick-filter" href="/app/reviews/monthly">
-          Revision mensual
+          Cobro mensual
         </a>
       </div>
 
-      <section className="app-header">
-        <SectionHeader
-          eyebrow="Revision manual"
-          title="Bandeja tactica de validacion"
-          description="Casos ambiguos, sugerencias y confirmacion final en una interfaz de control deportivo, tecnica y pensada para decisiones rapidas."
-        />
-
-        <div className="badge-row">
-          <div className="stat-chip featured">
-            <span className="stat-chip-label">Pendientes</span>
-            <strong>{reviews.length}</strong>
-            Casos esperando decision.
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Prioridad alta</span>
-            <strong>{reviews.filter((review) => review.priority === 1).length}</strong>
-            Prioridad alta en seguimiento.
-          </div>
+      <section className="reviews-header">
+        <div className="reviews-header-copy">
+          <span className="eyebrow">Revisión de pago</span>
+          <h1 className="reviews-title">Casos que requieren decisión manual</h1>
+          <p className="reviews-subtitle">
+            Bandeja táctica para resolver los casos que el sistema no pudo cerrar solo.
+          </p>
         </div>
-      </section>
 
-      <section className="summary-grid">
-        <article className="summary-card">
-          <span className="eyebrow">Contexto operativo</span>
-          <strong>Revision con foco y trazabilidad</strong>
-          <p>
-            Cada caso muestra lectura del OCR, sugerencias y confianza en una sola pieza visual.
-          </p>
-        </article>
-        <article className="summary-card">
-          <span className="eyebrow">Apoyo del sistema</span>
-          <strong>{reviewsWithSuggestions} casos con sugerencias</strong>
-          <p>
-            El equipo puede confirmar rapidamente cuando el sistema ya propone alumnos o cargos.
-          </p>
-        </article>
+        <div className="reviews-kpi-strip">
+          <article className="reviews-kpi-card">
+            <span className="reviews-kpi-label">Pendientes</span>
+            <strong className="reviews-kpi-value">{reviews.length}</strong>
+            <p className="reviews-kpi-note">Casos esperando decisión humana.</p>
+          </article>
+          <article className="reviews-kpi-card">
+            <span className="reviews-kpi-label">Prioridad alta</span>
+            <strong className="reviews-kpi-value">{highPriorityCount}</strong>
+            <p className="reviews-kpi-note">Casos que conviene resolver primero.</p>
+          </article>
+          <article className="reviews-kpi-card">
+            <span className="reviews-kpi-label">Con sugerencia</span>
+            <strong className="reviews-kpi-value">{reviewsWithSuggestions}</strong>
+            <p className="reviews-kpi-note">El sistema ya propone una salida inicial.</p>
+          </article>
+          <article className="reviews-kpi-card">
+            <span className="reviews-kpi-label">Sin sugerencia</span>
+            <strong className="reviews-kpi-value">{withoutSuggestionCount}</strong>
+            <p className="reviews-kpi-note">Requieren criterio manual completo.</p>
+          </article>
+        </div>
       </section>
 
       <form className="toolbar" method="get">
@@ -165,6 +205,20 @@ export default async function ReviewsPage(props: { searchParams?: SearchParamsIn
               <option value="seguimiento">Seguimiento</option>
             </select>
           </div>
+          <div className="toolbar-field">
+            <label htmlFor="review-status">Estado</label>
+            <select
+              id="review-status"
+              name="status"
+              defaultValue={statusFilter}
+              className="toolbar-select"
+            >
+              <option value="">Todos</option>
+              <option value="OPEN">Abiertos</option>
+              <option value="IN_PROGRESS">En revisión</option>
+              <option value="RESOLVED">Resuelta</option>
+            </select>
+          </div>
         </div>
         <div className="toolbar-actions">
           <button className="button button-small" type="submit">
@@ -179,31 +233,139 @@ export default async function ReviewsPage(props: { searchParams?: SearchParamsIn
       <article className="data-panel">
         <div className="data-panel-header">
           <span className="eyebrow">Casos abiertos</span>
-          <h2 className="card-title">Revision compacta en tabla</h2>
-          <p className="toolbar-note">Resultados visibles: {filteredReviews.length}</p>
+          <h2 className="card-title">Bandeja operativa</h2>
+          <p className="toolbar-note">
+            {filteredReviews.length} visibles | motivo, sugerencia y acción por caso.
+          </p>
         </div>
 
         {filteredReviews.length === 0 ? (
           <div className="table-empty">
             <EmptyState
               title="No hay revisiones para mostrar"
-              description="Ajusta los filtros o vuelve mas tarde si el sistema aun esta conciliando los comprobantes."
+              description="Ajusta los filtros o vuelve más tarde si el sistema aún está conciliando los comprobantes."
               actionHref="/app/reviews"
               actionLabel="Ver toda la bandeja"
             />
           </div>
         ) : (
-          <table className="data-table data-table-compact reviews-table">
+          <>
+            <div className="reviews-mobile-list">
+              {filteredReviews.map((review) => {
+                const priorityMeta = getPriorityMeta(review.priority);
+                const reviewStatus = getReviewStatusMeta(review.status);
+                const primaryCandidate = review.receipt.candidateMatches[0];
+                const confidenceMeta = primaryCandidate
+                  ? getConfidenceMeta(primaryCandidate.confidence)
+                  : null;
+
+                return (
+                  <article key={`mobile-${review.id}`} className="reviews-mobile-card">
+                    <div className="reviews-mobile-card-top">
+                      <div className="reviews-mobile-card-copy">
+                        <div className="table-primary">
+                          {primaryCandidate?.student?.fullName ?? "Alumno no identificado"}
+                        </div>
+                        <div className="table-secondary">
+                          {getCategoryLabel(primaryCandidate?.student?.notes)} |{" "}
+                          {review.receipt.originalFileName ?? `Comprobante ${review.receiptId}`}
+                        </div>
+                      </div>
+                      <div className="reviews-mobile-badges">
+                        <StatusBadge label={priorityMeta.label} tone={priorityMeta.tone} />
+                        <StatusBadge
+                          label={getReviewStatusLabel(review.status)}
+                          tone={reviewStatus.tone}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="reviews-mobile-section">
+                      <span className="reviews-mobile-label">Motivo de revisión</span>
+                      <div className="reviews-mobile-reason" title={review.reason}>
+                        {truncateText(review.reason, 120)}
+                      </div>
+                      <div className="table-secondary">
+                        {review.receipt.extractedSenderName ?? "Sin remitente"} |{" "}
+                        {review.receipt.extractedReference ?? "Sin referencia"}
+                      </div>
+                    </div>
+
+                    <div className="reviews-mobile-grid">
+                      <div className="reviews-mobile-item">
+                        <span className="reviews-mobile-label">Monto</span>
+                        <strong>
+                          {review.receipt.extractedAmountCents
+                            ? formatCurrencyFromCents(review.receipt.extractedAmountCents)
+                            : "Sin monto"}
+                        </strong>
+                        <span className="table-secondary">
+                          {review.receipt.extractedBankName ?? "Banco sin identificar"}
+                        </span>
+                      </div>
+
+                      <div className="reviews-mobile-item">
+                        <span className="reviews-mobile-label">Estado y contexto</span>
+                        <strong>{formatDateTime(review.updatedAt)}</strong>
+                        <span className="table-secondary">
+                          {getChannelLabel(review.receipt.channel)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="reviews-mobile-section">
+                      <span className="reviews-mobile-label">Sugerencia del sistema</span>
+                      {primaryCandidate ? (
+                        <div className="review-suggestion-cell reviews-mobile-suggestion">
+                          <strong className={`confidence-score ${confidenceMeta?.tone ?? "neutral"}`}>
+                            {Math.round(primaryCandidate.confidence * 100)}%
+                          </strong>
+                          <div className="review-suggestion-copy">
+                            <div className="table-primary">
+                              {primaryCandidate.student?.fullName ?? "Alumno no identificado"}
+                            </div>
+                            <div className="table-secondary">
+                              {primaryCandidate.charge?.description ?? "Sin cargo sugerido"}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="review-suggestion-cell reviews-mobile-suggestion">
+                          <strong className="confidence-score neutral">-</strong>
+                          <div className="review-suggestion-copy">
+                            <div className="table-primary">Sin sugerencia confiable</div>
+                            <div className="table-secondary">Requiere criterio manual</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="reviews-mobile-footer">
+                      <div className="table-secondary">
+                        {review.receipt.candidateMatches.length} sugerencia
+                        {review.receipt.candidateMatches.length === 1 ? "" : "s"}
+                      </div>
+                      <a
+                        className="table-link table-link-primary reviews-mobile-action"
+                        href={buildReviewDetailHref(params, review.receiptId)}
+                      >
+                        Resolver caso
+                      </a>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <table className="data-table data-table-compact reviews-table">
             <thead>
               <tr>
-                <th>Comprobante</th>
-                <th>Motivo</th>
-                <th>Prioridad</th>
-                <th>Estado</th>
+                <th>Caso</th>
+                <th>Motivo de revisión</th>
+                <th>Contexto</th>
                 <th>Monto</th>
-                <th>Sugerencia principal</th>
-                <th>Actualizado</th>
-                <th>Detalle</th>
+                <th>Sugerencia del sistema</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -219,25 +381,34 @@ export default async function ReviewsPage(props: { searchParams?: SearchParamsIn
                   <tr key={review.id}>
                     <td>
                       <div className="table-primary">
-                        {review.receipt.originalFileName ?? `Comprobante ${review.receiptId}`}
+                        {primaryCandidate?.student?.fullName ?? "Alumno no identificado"}
                       </div>
                       <div className="table-secondary">
-                        Ref: {review.receipt.extractedReference ?? "Sin referencia"}
+                        {getCategoryLabel(primaryCandidate?.student?.notes)} |{" "}
+                        {review.receipt.originalFileName ?? `Comprobante ${review.receiptId}`}
                       </div>
                     </td>
                     <td>
-                      <div className="table-primary" title={review.reason}>
+                      <div className="cell-subtitle">Motivo principal</div>
+                      <div className="table-primary review-reason" title={review.reason}>
                         {truncateText(review.reason)}
                       </div>
                       <div className="table-secondary">
-                        {review.receipt.extractedSenderName ?? "Sin remitente"}
+                        {review.receipt.extractedSenderName ?? "Sin remitente"} |{" "}
+                        {review.receipt.extractedReference ?? "Sin referencia"}
                       </div>
                     </td>
                     <td>
-                      <StatusBadge label={priorityMeta.label} tone={priorityMeta.tone} />
-                    </td>
-                    <td>
-                      <StatusBadge label={reviewStatus.label} tone={reviewStatus.tone} />
+                      <div className="review-context-cell">
+                        <StatusBadge label={priorityMeta.label} tone={priorityMeta.tone} />
+                        <StatusBadge
+                          label={getReviewStatusLabel(review.status)}
+                          tone={reviewStatus.tone}
+                        />
+                        <div className="table-secondary">
+                          {formatDateTime(review.updatedAt)} | {getChannelLabel(review.receipt.channel)}
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <div className="table-primary">
@@ -251,42 +422,49 @@ export default async function ReviewsPage(props: { searchParams?: SearchParamsIn
                     </td>
                     <td>
                       {primaryCandidate ? (
-                        <div className="compact-confidence">
+                        <div className="review-suggestion-cell">
                           <strong className={`confidence-score ${confidenceMeta?.tone ?? "neutral"}`}>
                             {Math.round(primaryCandidate.confidence * 100)}%
                           </strong>
-                          <div className="table-secondary">
-                            {primaryCandidate.student?.fullName ?? "Alumno no identificado"}
+                          <div className="review-suggestion-copy">
+                            <div className="table-primary">
+                              {primaryCandidate.student?.fullName ?? "Alumno no identificado"}
+                            </div>
+                            <div className="table-secondary">
+                              {primaryCandidate.charge?.description ?? "Sin cargo sugerido"}
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="compact-confidence">
+                        <div className="review-suggestion-cell">
                           <strong className="confidence-score neutral">-</strong>
-                          <div className="table-secondary">Sin sugerencia confiable</div>
+                          <div className="review-suggestion-copy">
+                            <div className="table-primary">Sin sugerencia confiable</div>
+                            <div className="table-secondary">Requiere criterio manual</div>
+                          </div>
                         </div>
                       )}
                     </td>
                     <td>
-                      <div className="table-primary">{formatDateTime(review.updatedAt)}</div>
-                      <div className="table-secondary">
-                        {review.receipt.candidateMatches.length} sugerencias
-                      </div>
-                    </td>
-                    <td>
-                      <div className="compact-actions">
+                      <div className="compact-actions review-actions">
                         <a
-                          className="table-link"
+                          className="table-link table-link-primary"
                           href={buildReviewDetailHref(params, review.receiptId)}
                         >
-                          Ver detalle
+                          Resolver caso
                         </a>
+                        <div className="table-secondary">
+                          {review.receipt.candidateMatches.length} sugerencia
+                          {review.receipt.candidateMatches.length === 1 ? "" : "s"}
+                        </div>
                       </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </>
         )}
       </article>
     </section>

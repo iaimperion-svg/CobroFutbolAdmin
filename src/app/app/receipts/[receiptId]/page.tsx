@@ -447,7 +447,7 @@ export default async function ReceiptDetailPage(props: {
           </article>
 
           <article className="app-card stack">
-            <span className="eyebrow">Acciones de revision</span>
+            <span className="eyebrow">Acciones de revisión</span>
             <ReceiptDrawerActions
               receiptId={selectedReceipt.id}
               defaultChargeId={selectedCandidate?.chargeId ?? null}

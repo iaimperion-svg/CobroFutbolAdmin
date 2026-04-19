@@ -6,17 +6,15 @@ import { parseTelegramUpdate } from "@/server/services/telegram.service";
 
 export async function POST(request: Request) {
   try {
-    if (!env.ONBOARDING_TELEGRAM_ENABLED) {
+    if (!env.ONBOARDING_TELEGRAM_ENABLED && !env.TELEGRAM_ENABLED) {
       return new Response("Onboarding Telegram disabled", { status: 503 });
     }
 
     const headerStore = await headers();
     const secret = headerStore.get("x-telegram-bot-api-secret-token");
+    const expectedSecret = env.ONBOARDING_TELEGRAM_WEBHOOK_SECRET || env.TELEGRAM_WEBHOOK_SECRET;
 
-    if (
-      env.ONBOARDING_TELEGRAM_WEBHOOK_SECRET &&
-      secret !== env.ONBOARDING_TELEGRAM_WEBHOOK_SECRET
-    ) {
+    if (expectedSecret && secret !== expectedSecret) {
       return new Response("Forbidden", { status: 403 });
     }
 

@@ -1,11 +1,11 @@
 import { StudentsCrudPanel } from "@/components/students/students-crud-panel";
-import { SectionHeader } from "@/components/ui/section-header";
 import { requireSession } from "@/server/auth/session";
 import { listStudents } from "@/server/services/students.service";
 import { formatCurrencyFromCents } from "@/server/utils/money";
 
 type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
 type StudentListItem = Awaited<ReturnType<typeof listStudents>>[number];
+
 const monthlyReviewCategoryKeys = [
   "sub-6",
   "sub-8",
@@ -83,24 +83,34 @@ function getStudentCategoryKey(notes: string | null | undefined) {
 
 function formatCategoryLabel(categoryKey: string) {
   if (categoryKey === "sin-categoria") {
-    return "Sin categoria";
+    return "Sin categoría";
   }
 
   return categoryKey.replace(/\b\w/g, (letter) => letter.toUpperCase()).replace(/-/g, "-");
 }
 
-function readMonthlyOutstanding(student: StudentListItem, periodLabel: string) {
-  return student.charges
-    .filter((charge) => charge.periodLabel === periodLabel && charge.status !== "CANCELED")
-    .reduce((total, charge) => total + charge.outstandingCents, 0);
-}
-
-function readMonthlyConsolidated(student: StudentListItem, periodLabel: string) {
-  const periodCharges = student.charges.filter(
+function readPeriodCharges(student: StudentListItem, periodLabel: string) {
+  return student.charges.filter(
     (charge) => charge.periodLabel === periodLabel && charge.status !== "CANCELED"
   );
+}
 
-  return periodCharges.length > 0 && periodCharges.every((charge) => charge.outstandingCents === 0);
+function readMonthlyOutstanding(student: StudentListItem, periodLabel: string) {
+  return readPeriodCharges(student, periodLabel).reduce(
+    (total, charge) => total + charge.outstandingCents,
+    0
+  );
+}
+
+function readMonthlyBilled(student: StudentListItem, periodLabel: string) {
+  return readPeriodCharges(student, periodLabel).reduce((total, charge) => total + charge.amountCents, 0);
+}
+
+function readMonthlyCollected(student: StudentListItem, periodLabel: string) {
+  const billed = readMonthlyBilled(student, periodLabel);
+  const outstanding = readMonthlyOutstanding(student, periodLabel);
+
+  return billed - outstanding;
 }
 
 function formatReviewPeriod(periodLabel: string) {
@@ -114,6 +124,22 @@ function formatReviewPeriod(periodLabel: string) {
   }).format(new Date(year, month - 1, 1));
 }
 
+function readCollectionRate(billedCents: number, collectedCents: number) {
+  return billedCents === 0 ? 0 : Math.round((collectedCents / billedCents) * 100);
+}
+
+type CategorySummary = {
+  key: string;
+  label: string;
+  students: number;
+  studentsPending: number;
+  billedCents: number;
+  collectedCents: number;
+  outstandingCents: number;
+  collectionRate: number;
+  disabled: boolean;
+};
+
 export default async function MonthlyReviewPage(props: { searchParams?: SearchParamsInput }) {
   const session = await requireSession();
   const students = await listStudents(session.schoolId);
@@ -125,7 +151,7 @@ export default async function MonthlyReviewPage(props: { searchParams?: SearchPa
   const reviewPeriodLabel = formatReviewPeriod(period);
 
   const filteredStudents = students.filter((student) => {
-    const outstanding = student.charges.reduce((total, charge) => total + charge.outstandingCents, 0);
+    const monthlyOutstanding = readMonthlyOutstanding(student, period);
     const matchesQuery =
       query.length === 0 ||
       student.fullName.toLowerCase().includes(query) ||
@@ -133,148 +159,221 @@ export default async function MonthlyReviewPage(props: { searchParams?: SearchPa
       student.guardians.some((relation) => relation.guardian.fullName.toLowerCase().includes(query));
     const matchesDebt =
       debtFilter === "" ||
-      (debtFilter === "con-saldo" && outstanding > 0) ||
-      (debtFilter === "al-dia" && outstanding === 0);
+      (debtFilter === "con-saldo" && monthlyOutstanding > 0) ||
+      (debtFilter === "al-dia" && monthlyOutstanding === 0);
 
     return matchesQuery && matchesDebt;
   });
 
-  const categoryRollup = filteredStudents.reduce<
-    Map<string, { key: string; label: string; students: number; monthlyOutstandingCents: number }>
-  >((categories, student) => {
+  const categoryMap = new Map<string, CategorySummary>();
+  for (const key of monthlyReviewCategoryKeys) {
+    categoryMap.set(key, {
+      key,
+      label: formatCategoryLabel(key),
+      students: 0,
+      studentsPending: 0,
+      billedCents: 0,
+      collectedCents: 0,
+      outstandingCents: 0,
+      collectionRate: 0,
+      disabled: true
+    });
+  }
+
+  for (const student of filteredStudents) {
     const key = getStudentCategoryKey(student.notes);
-    const monthlyOutstandingCents = readMonthlyOutstanding(student, period);
+    const billedCents = readMonthlyBilled(student, period);
+    const collectedCents = readMonthlyCollected(student, period);
+    const outstandingCents = readMonthlyOutstanding(student, period);
     const existing =
-      categories.get(key) ?? {
+      categoryMap.get(key) ?? {
         key,
         label: formatCategoryLabel(key),
         students: 0,
-        monthlyOutstandingCents: 0
+        studentsPending: 0,
+        billedCents: 0,
+        collectedCents: 0,
+        outstandingCents: 0,
+        collectionRate: 0,
+        disabled: true
       };
 
     existing.students += 1;
-    existing.monthlyOutstandingCents += monthlyOutstandingCents;
-    categories.set(key, existing);
+    existing.billedCents += billedCents;
+    existing.collectedCents += collectedCents;
+    existing.outstandingCents += outstandingCents;
+    existing.studentsPending += outstandingCents > 0 ? 1 : 0;
+    existing.collectionRate = readCollectionRate(existing.billedCents, existing.collectedCents);
+    existing.disabled = existing.students === 0;
+    categoryMap.set(key, existing);
+  }
 
-    return categories;
-  }, new Map());
-
-  const extraCategoryKeys = Array.from(categoryRollup.keys()).filter(
+  const extraCategoryKeys = Array.from(categoryMap.keys()).filter(
     (key) => !monthlyReviewCategoryKeys.includes(key as (typeof monthlyReviewCategoryKeys)[number])
   );
-  const categoryTabs = [...monthlyReviewCategoryKeys, ...extraCategoryKeys].map((key) => {
-    const existing = categoryRollup.get(key);
+  const preferredOrder = [...monthlyReviewCategoryKeys, ...extraCategoryKeys];
+  const categorySummaries = preferredOrder
+    .map((key) => categoryMap.get(key))
+    .filter((category): category is CategorySummary => Boolean(category));
 
-    return {
-      key,
-      label: formatCategoryLabel(key),
-      students: existing?.students ?? 0,
-      monthlyOutstandingCents: existing?.monthlyOutstandingCents ?? 0,
-      disabled: (existing?.students ?? 0) === 0
-    };
-  });
   const requestedCategory = readTextParam(params.category).toLowerCase();
+  const knownCategoryKeys = new Set(categorySummaries.map((category) => category.key));
   const activeCategory =
-    requestedCategory !== "" && categoryRollup.has(requestedCategory) ? requestedCategory : "all";
+    requestedCategory !== "" && knownCategoryKeys.has(requestedCategory) ? requestedCategory : "all";
   const activeCategoryLabel =
-    activeCategory === "all" ? "Todas las categorias" : formatCategoryLabel(activeCategory);
+    activeCategory === "all" ? "Todas las categorías" : formatCategoryLabel(activeCategory);
+
   const visibleStudents = filteredStudents.filter(
     (student) =>
       activeCategory === "all" || getStudentCategoryKey(student.notes) === activeCategory
   );
-  const totalMonthlyOutstandingAllCategories = filteredStudents.reduce(
-    (total, student) => total + readMonthlyOutstanding(student, period),
+
+  const totalMonthlyBilled = visibleStudents.reduce(
+    (total, student) => total + readMonthlyBilled(student, period),
     0
   );
-  const studentsWithMonthlyCharge = visibleStudents.filter((student) =>
-    student.charges.some((charge) => charge.periodLabel === period && charge.status !== "CANCELED")
-  ).length;
-  const consolidatedStudents = visibleStudents.filter((student) =>
-    readMonthlyConsolidated(student, period)
-  ).length;
+  const totalMonthlyCollected = visibleStudents.reduce(
+    (total, student) => total + readMonthlyCollected(student, period),
+    0
+  );
   const totalMonthlyOutstanding = visibleStudents.reduce(
     (total, student) => total + readMonthlyOutstanding(student, period),
     0
   );
+  const monthlyCollectionRate = readCollectionRate(totalMonthlyBilled, totalMonthlyCollected);
   const studentsPendingThisMonth = visibleStudents.filter(
     (student) => readMonthlyOutstanding(student, period) > 0
   ).length;
+  const topCategory =
+    [...categorySummaries]
+      .filter((category) => category.outstandingCents > 0)
+      .sort((left, right) => right.outstandingCents - left.outstandingCents)[0] ?? null;
+
+  const executiveTitle =
+    activeCategory === "all" ? "Cobro mensual del período" : `${activeCategoryLabel} / detalle del mes`;
+  const executiveCopy =
+    activeCategory === "all"
+      ? topCategory
+        ? `${topCategory.label} concentra el mayor saldo pendiente del período.`
+        : `No hay deuda pendiente en ${reviewPeriodLabel}.`
+      : studentsPendingThisMonth > 0
+        ? `${studentsPendingThisMonth} alumno${studentsPendingThisMonth === 1 ? "" : "s"} de ${activeCategoryLabel} siguen con saldo en ${reviewPeriodLabel}.`
+        : `${activeCategoryLabel} no tiene saldo pendiente en ${reviewPeriodLabel}.`;
+
+  const monthlyKpis = [
+    {
+      label: "Total del mes",
+      value: formatCurrencyFromCents(totalMonthlyBilled),
+      note: "Monto facturado del período."
+    },
+    {
+      label: "Cobrado",
+      value: formatCurrencyFromCents(totalMonthlyCollected),
+      note: "Pagos ya cerrados este mes."
+    },
+    {
+      label: "Pendiente",
+      value: formatCurrencyFromCents(totalMonthlyOutstanding),
+      note: "Saldo que aún requiere seguimiento."
+    },
+    {
+      label: "% de recaudación",
+      value: `${monthlyCollectionRate}%`,
+      note: "Avance real de cobranza del período."
+    },
+    {
+      label: "Alumnos con saldo",
+      value: `${studentsPendingThisMonth}`,
+      note: "Alumnos que aún arrastran deuda del mes."
+    }
+  ];
 
   return (
-    <section className="stack">
-      <div className="quick-filters review-mode-switch" aria-label="Tipos de revision">
+    <section className="stack monthly-review-screen">
+      <div className="quick-filters review-mode-switch" aria-label="Vistas de cobranza">
         <a className="quick-filter" href="/app/reviews">
-          Revision manual
+          Revisión de pago
         </a>
         <a className="quick-filter active" href="/app/reviews/monthly">
-          Revision mensual
+          Cobro mensual
         </a>
       </div>
 
-      <section className="app-header">
-        <SectionHeader
-          eyebrow="Revision mensual"
-          title="Deuda mensual por categoria"
-          description="Vista operativa para recorrer el plantel por categoria, revisar el saldo mensual de cada grupo y detectar rapidamente que alumnos ya tienen su mes consolidado."
-        />
-
-        <div className="student-category-tabs-wrap">
-          <div className="student-category-tabs" aria-label="Categorias de revision mensual">
-            <a
-              className={`student-category-tab${activeCategory === "all" ? " active" : ""}`}
-              href={buildMonthlyReviewHref(params, { category: null })}
-            >
-              <strong>Todas</strong>
-              <span>{formatCurrencyFromCents(totalMonthlyOutstandingAllCategories)} pendiente</span>
-            </a>
-            {categoryTabs.map((category) =>
-              category.disabled ? (
-                <span
-                  key={category.key}
-                  className="student-category-tab disabled"
-                  aria-disabled="true"
-                >
-                  <strong>{category.label}</strong>
-                  <span>Sin alumnos en este filtro</span>
-                </span>
-              ) : (
-                <a
-                  key={category.key}
-                  className={`student-category-tab${activeCategory === category.key ? " active" : ""}`}
-                  href={buildMonthlyReviewHref(params, { category: category.key })}
-                >
-                  <strong>{category.label}</strong>
-                  <span>
-                    {category.students} alumno{category.students === 1 ? "" : "s"} |{" "}
-                    {formatCurrencyFromCents(category.monthlyOutstandingCents)}
-                  </span>
-                </a>
-              )
-            )}
+      <section className="monthly-review-header">
+        <div className="monthly-review-hero">
+          <div className="monthly-review-copy">
+            <span className="eyebrow">Cobro mensual</span>
+            <h1 className="monthly-review-title">{executiveTitle}</h1>
+            <p className="monthly-review-description">
+              {reviewPeriodLabel} / {executiveCopy}
+            </p>
           </div>
+          <form className="monthly-review-period-form" method="get">
+            <input type="hidden" name="q" value={readTextParam(params.q)} />
+            <input type="hidden" name="balance" value={debtFilter} />
+            {activeCategory !== "all" ? (
+              <input type="hidden" name="category" value={activeCategory} />
+            ) : null}
+            <label className="dashboard-month-field monthly-review-month-field" htmlFor="monthly-period-top">
+              <span>Mes a revisar</span>
+              <input id="monthly-period-top" name="period" type="month" defaultValue={period} />
+            </label>
+            <button className="button button-small" type="submit">
+              Ver mes
+            </button>
+          </form>
         </div>
 
-        <div className="badge-row">
-          <div className="stat-chip featured">
-            <span className="stat-chip-label">Periodo</span>
-            <strong>{reviewPeriodLabel}</strong>
-            Revision activa del mes seleccionado.
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Saldo mensual</span>
-            <strong>{formatCurrencyFromCents(totalMonthlyOutstanding)}</strong>
-            Pendiente del filtro activo.
-          </div>
-          <div className="stat-chip">
-            <span className="stat-chip-label">Consolidada</span>
-            <strong>{consolidatedStudents}</strong>
-            Alumnos con el mes cerrado.
-          </div>
+        <div className="monthly-review-kpis monthly-review-kpis-expanded">
+          {monthlyKpis.map((item) => (
+            <article key={item.label} className="monthly-review-kpi">
+              <span className="monthly-review-kpi-label">{item.label}</span>
+              <strong className="monthly-review-kpi-value">{item.value}</strong>
+              <p className="monthly-review-kpi-note">{item.note}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <form className="toolbar" method="get">
-        <div className="toolbar-group">
+      <section className="monthly-review-category-section">
+        <div className="monthly-review-section-head">
+          <div>
+            <span className="eyebrow">Resumen por categoría</span>
+            <h2 className="card-title">Desempeño del mes por grupo</h2>
+          </div>
+        </div>
+        <div className="monthly-review-category-grid">
+          <a
+            className={`monthly-review-category-card${activeCategory === "all" ? " active" : ""}`}
+            href={buildMonthlyReviewHref(params, { category: null })}
+          >
+            <strong>Todas</strong>
+            <span>{formatCurrencyFromCents(totalMonthlyOutstanding)} pendiente</span>
+            <small>{studentsPendingThisMonth} alumnos con saldo</small>
+          </a>
+          {categorySummaries.map((category) => (
+            <a
+              key={category.key}
+              className={`monthly-review-category-card${activeCategory === category.key ? " active" : ""}${category.outstandingCents === 0 ? " is-secondary" : ""}${category.disabled ? " disabled" : ""}`}
+              href={buildMonthlyReviewHref(params, { category: category.key })}
+              aria-disabled={category.disabled ? "true" : undefined}
+            >
+              <strong>{category.label}</strong>
+              <span>{formatCurrencyFromCents(category.outstandingCents)} pendiente</span>
+              <small>
+                {category.studentsPending} con saldo / {category.collectionRate}% cobrado
+              </small>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <form className="toolbar monthly-review-toolbar" method="get">
+        <input type="hidden" name="period" value={period} />
+        {activeCategory !== "all" ? (
+          <input type="hidden" name="category" value={activeCategory} />
+        ) : null}
+        <div className="toolbar-group monthly-review-toolbar-group">
           <div className="toolbar-field">
             <label htmlFor="monthly-review-query">Buscar</label>
             <input
@@ -282,11 +381,11 @@ export default async function MonthlyReviewPage(props: { searchParams?: SearchPa
               name="q"
               defaultValue={readTextParam(params.q)}
               className="toolbar-input"
-              placeholder="Buscar por alumno, codigo o apoderado"
+              placeholder="Buscar por alumno, código o apoderado"
             />
           </div>
           <div className="toolbar-field">
-            <label htmlFor="monthly-review-balance">Estado de cuenta</label>
+            <label htmlFor="monthly-review-balance">Estado</label>
             <select
               id="monthly-review-balance"
               name="balance"
@@ -295,54 +394,25 @@ export default async function MonthlyReviewPage(props: { searchParams?: SearchPa
             >
               <option value="">Todos</option>
               <option value="con-saldo">Con saldo pendiente</option>
-              <option value="al-dia">Al dia</option>
+              <option value="al-dia">Al día</option>
             </select>
-          </div>
-          <div className="toolbar-field">
-            <label htmlFor="monthly-review-period">Periodo mensual</label>
-            <input
-              id="monthly-review-period"
-              name="period"
-              type="month"
-              defaultValue={period}
-              className="toolbar-input"
-            />
           </div>
         </div>
         <div className="toolbar-actions">
           <button className="button button-small" type="submit">
             Aplicar filtros
           </button>
-          <a className="button-secondary button-small" href="/app/reviews/monthly">
+          <a
+            className="button-secondary button-small"
+            href={buildMonthlyReviewHref(
+              { period },
+              activeCategory !== "all" ? { category: activeCategory } : {}
+            )}
+          >
             Limpiar
           </a>
         </div>
       </form>
-
-      <section className="app-card stack student-monthly-review">
-        <div className="student-monthly-summary-grid">
-          <article className="student-summary-card">
-            <span className="stat-chip-label">Saldo del mes</span>
-            <strong>{formatCurrencyFromCents(totalMonthlyOutstanding)}</strong>
-            Total pendiente del periodo seleccionado.
-          </article>
-          <article className="student-summary-card">
-            <span className="stat-chip-label">Deuda consolidada</span>
-            <strong>{consolidatedStudents}</strong>
-            Alumnos con el mes completamente cerrado.
-          </article>
-          <article className="student-summary-card">
-            <span className="stat-chip-label">Con cargo del mes</span>
-            <strong>{studentsWithMonthlyCharge}</strong>
-            Alumnos con mensualidad emitida en este periodo.
-          </article>
-          <article className="student-summary-card">
-            <span className="stat-chip-label">Pendientes</span>
-            <strong>{studentsPendingThisMonth}</strong>
-            Alumnos que aun arrastran saldo del mes.
-          </article>
-        </div>
-      </section>
 
       <StudentsCrudPanel
         initialStudents={visibleStudents}
@@ -350,6 +420,7 @@ export default async function MonthlyReviewPage(props: { searchParams?: SearchPa
         reviewPeriod={period}
         reviewPeriodLabel={reviewPeriodLabel}
         activeCategoryLabel={activeCategoryLabel}
+        mode="monthly"
       />
     </section>
   );
