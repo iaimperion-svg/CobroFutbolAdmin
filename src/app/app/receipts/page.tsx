@@ -11,7 +11,6 @@ import { requireSession } from "@/server/auth/session";
 import { getReceiptReviewCase } from "@/server/services/manual-review.service";
 import { listCharges } from "@/server/services/charges.service";
 import { listReceipts } from "@/server/services/receipts.service";
-import { listReconciliations } from "@/server/services/reconciliation.service";
 import { listStudents } from "@/server/services/students.service";
 import { formatCurrencyFromCents } from "@/server/utils/money";
 
@@ -153,23 +152,23 @@ function truncateText(value: string | null | undefined, maxLength = 96) {
 
 function formatAuditAction(action: string) {
   const labelMap: Record<string, string> = {
-    "receipt.automatic.reconciled": "Conciliacion automatica",
-    "receipt.review.approved": "Conciliacion aprobada",
+    "receipt.automatic.reconciled": "Conciliación automática",
+    "receipt.review.approved": "Conciliación aprobada",
     "receipt.review.reassigned": "Comprobante reasignado",
     "receipt.review.manual_payment_confirmed": "Pago manual confirmado",
-    "receipt.review.rejected": "Conciliacion rechazada",
+    "receipt.review.rejected": "Conciliación rechazada",
     "receipt.review.reprocess_requested": "Reproceso solicitado",
     "receipt.review.reprocessed": "Reproceso completado",
-    "receipt.review.reprocessed_and_confirmed": "Reproceso con cierre automatico",
-    "receipt.review.note_added": "Observacion interna agregada",
-    "receipt.manual.reconciled": "Conciliacion manual"
+    "receipt.review.reprocessed_and_confirmed": "Reproceso con cierre automático",
+    "receipt.review.note_added": "Observación interna agregada",
+    "receipt.manual.reconciled": "Conciliación manual"
   };
 
   return labelMap[action] ?? action;
 }
 
 function ReconciliationMode(props: { mode: "auto" | "manual" | "pending" }) {
-  const labels = { auto: "Automatica", manual: "Manual", pending: "Pendiente" } as const;
+  const labels = { auto: "Automática", manual: "Manual", pending: "Pendiente" } as const;
 
   return (
     <span className={`reconciliation-mode ${props.mode}`}>
@@ -196,9 +195,8 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
   const quickFilter = readTextParam(params.quick);
   const detailId = readTextParam(params.detail);
   const drawerView = readTextParam(params.view);
-  const [receipts, reconciliations, students, charges, selectedCase] = await Promise.all([
+  const [receipts, students, charges, selectedCase] = await Promise.all([
     listReceipts(session.schoolId),
-    listReconciliations(session.schoolId),
     listStudents(session.schoolId),
     listCharges(session.schoolId),
     detailId ? getReceiptReviewCase(detailId, session.schoolId).catch(() => null) : Promise.resolve(null)
@@ -225,18 +223,6 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
 
     return matchesQuery && matchesStatus && matchesConfidence && matchesQuick;
   });
-
-  const filteredReconciliations = reconciliations.filter((reconciliation) => {
-    return (
-      query.length === 0 ||
-      (reconciliation.receipt.originalFileName ?? "").toLowerCase().includes(query) ||
-      (reconciliation.receipt.student?.fullName ?? "").toLowerCase().includes(query) ||
-      (reconciliation.payment.senderName ?? "").toLowerCase().includes(query) ||
-      (reconciliation.allocations[0]?.charge.description ?? "").toLowerCase().includes(query)
-    );
-  });
-
-
   const chargeOptions = charges
     .filter((charge) => charge.outstandingCents > 0 && charge.status !== "PAID" && charge.status !== "CANCELED")
     .map((charge) => ({
@@ -270,6 +256,13 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
     selectedReceipt?.student?.fullName ??
     "Sin sugerencia";
   const selectedConfidenceScore = selectedCandidate ? Math.round(selectedCandidate.confidence * 100) : null;
+  const totalDerivedToReview = receipts.filter((receipt) => receipt.status === "MANUAL_REVIEW").length;
+  const totalReconciled = receipts.filter(
+    (receipt) =>
+      receipt.status === "AUTO_RECONCILED" ||
+      receipt.status === "MATCHED" ||
+      receipt.reconciliations.length > 0
+  ).length;
 
   return (
     <section className="stack receipts-screen">
@@ -279,21 +272,20 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
             <span className="eyebrow">Comprobantes</span>
             <h1 className="receipts-title">Bandeja de comprobantes</h1>
             <p className="receipts-subtitle">
-              OCR, conciliacion y decision rapida en una sola vista.
+              Trazabilidad de lo recibido, su lectura y su estado actual.
             </p>
           </div>
           <div className="receipts-inline-metrics">
-            <span>{receipts.length} totales</span>
-            <span>{filteredReceipts.length} visibles</span>
-            <span>{filteredReconciliations.length} conciliaciones</span>
+            <span>{receipts.length} recibidos</span>
+            <span>{totalDerivedToReview} a revisión</span>
+            <span>{totalReconciled} conciliados</span>
           </div>
         </section>
 
-        <div className="receipts-ingestion-note">
-          <strong>Ingreso exclusivo por Telegram.</strong>
+        <div className="receipts-ingestion-note receipts-ingestion-note-secondary">
+          <strong>Ingreso por Telegram.</strong>
           <span>
-            Los comprobantes ya no se cargan manualmente desde esta vista. Si la cola crece,
-            seguiran entrando por webhook y se procesaran en paralelo.
+            Esta vista muestra lo que ya entró al sistema. La validación manual principal se resuelve en Revisión de pago.
           </span>
         </div>
 
@@ -321,8 +313,8 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
                 <option value="RECEIVED">Recibido</option>
                 <option value="PROCESSING">Procesando</option>
                 <option value="MATCHED">Conciliado por el equipo</option>
-                <option value="AUTO_RECONCILED">Conciliado automaticamente</option>
-                <option value="MANUAL_REVIEW">Requiere revision</option>
+                <option value="AUTO_RECONCILED">Conciliado automáticamente</option>
+                <option value="MANUAL_REVIEW">Requiere revisión</option>
                 <option value="REJECTED">Rechazado</option>
                 <option value="FAILED">Error de procesamiento</option>
               </select>
@@ -350,17 +342,17 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
               >
                 Todos
               </a>
-              <a
-                className={`quick-filter${quickFilter === "revision" ? " active" : ""}`}
-                href={buildHref(params, { quick: "revision", detail: null, view: null })}
-              >
-                Solo requiere revision
-              </a>
+                <a
+                  className={`quick-filter${quickFilter === "revision" ? " active" : ""}`}
+                  href={buildHref(params, { quick: "revision", detail: null, view: null })}
+                >
+                Derivados a revisión
+                </a>
               <a
                 className={`quick-filter${quickFilter === "automatico" ? " active" : ""}`}
                 href={buildHref(params, { quick: "automatico", detail: null, view: null })}
               >
-                Solo conciliado automaticamente
+                Conciliados automaticos
               </a>
             </div>
             <div className="toolbar-actions">
@@ -377,9 +369,11 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
 
         <article className="data-panel">
           <div className="data-panel-header">
-            <span className="eyebrow">Cola de comprobantes</span>
-            <h2 className="card-title">Lectura operativa y decisiones rapidas</h2>
-            <p className="toolbar-note">Resultados visibles: {filteredReceipts.length}</p>
+            <span className="eyebrow">Bandeja principal</span>
+            <h2 className="card-title">Comprobantes recibidos</h2>
+            <p className="toolbar-note">
+              {filteredReceipts.length} visibles · origen, lectura, estado y trazabilidad del comprobante.
+            </p>
           </div>
           {filteredReceipts.length === 0 ? (
             <div className="table-empty">
@@ -391,20 +385,8 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
               />
             </div>
           ) : (
-            <table className="data-table data-table-compact">
-              <thead>
-                <tr>
-                  <th>Comprobante</th>
-                  <th>Origen</th>
-                  <th>Remitente</th>
-                  <th>Monto</th>
-                  <th>Confianza</th>
-                  <th>Estado</th>
-                  <th>Conciliacion</th>
-                  <th>Accion</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <div className="receipts-mobile-list">
                 {filteredReceipts.map((receipt) => {
                   const receiptMeta = getReceiptStatusMeta(receipt.status);
                   const bestCandidate = receipt.candidateMatches[0];
@@ -424,108 +406,254 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
                       : null) ??
                     receipt.student?.fullName ??
                     "Sin sugerencia";
+                  const reconciliationLabel = bestReconciliation
+                    ? decisionMeta?.label ??
+                      getReconciliationStatusMeta(bestReconciliation.status).label
+                    : decisionMeta?.label ??
+                      (receipt.status === "REJECTED" ? "Rechazado" : "Pendiente");
 
                   return (
-                    <tr key={receipt.id}>
-                      <td>
-                        <div className="table-primary">{receipt.originalFileName ?? receipt.id}</div>
-                        <div className="table-secondary">
-                          {getFileKindLabel(receipt.mimeType)} · {suggestedStudentName}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="table-primary">{getChannelLabel(receipt.channel)}</div>
-                        <div className="table-secondary">{getOriginSecondaryLine(receipt)}</div>
-                      </td>
-                      <td>
-                        <div className="table-primary">
-                          {receipt.message?.senderName ??
-                            receipt.extractedSenderName ??
-                            "Sin remitente"}
-                        </div>
-                        <div className="table-secondary">
-                          {receipt.message?.bodyText
-                            ? truncateText(receipt.message.bodyText)
-                            : receipt.guardian?.fullName ?? "Sin apoderado asociado"}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="table-primary compact-amount">
-                          {receipt.extractedAmountCents
-                            ? formatCurrencyFromCents(receipt.extractedAmountCents)
-                            : "Sin monto"}
-                        </div>
-                        <div className="table-secondary">
-                          {receipt.extractedReference ?? "Sin referencia"}
-                        </div>
-                      </td>
-                      <td>
-                        {bestCandidate ? (
-                          <div className="compact-confidence">
-                            <strong className={`confidence-score ${confidenceMeta?.tone ?? "neutral"}`}>
-                              {confidenceScore}%
-                            </strong>
-                            <StatusBadge
-                              label={confidenceMeta?.label ?? "Sin lectura"}
-                              tone={confidenceMeta?.tone ?? "neutral"}
-                            />
+                    <article key={`mobile-${receipt.id}`} className="receipts-mobile-card">
+                      <div className="receipts-mobile-card-top">
+                        <div className="receipts-mobile-card-copy">
+                          <div className="table-primary">
+                            {receipt.originalFileName ?? receipt.id}
                           </div>
-                        ) : (
-                          <div className="compact-confidence">
-                            <strong className="confidence-score neutral">-</strong>
-                            <StatusBadge label="Sin sugerencia" tone="neutral" />
+                          <div className="table-secondary">
+                            {getFileKindLabel(receipt.mimeType)} · {suggestedStudentName}
                           </div>
-                        )}
-                      </td>
-                      <td>
-                        <StatusBadge label={receiptMeta.label} tone={receiptMeta.tone} />
-                      </td>
-                      <td>
-                        {bestReconciliation ? (
+                        </div>
+                        <div className="receipts-mobile-badges">
+                          <StatusBadge label={receiptMeta.label} tone={receiptMeta.tone} />
+                        </div>
+                      </div>
+
+                      <div className="receipts-mobile-grid">
+                        <div className="receipts-mobile-item">
+                          <span className="receipts-mobile-label">Origen</span>
+                          <strong>{getChannelLabel(receipt.channel)}</strong>
+                          <span className="table-secondary">
+                            {getOriginSecondaryLine(receipt)}
+                          </span>
+                        </div>
+
+                        <div className="receipts-mobile-item">
+                          <span className="receipts-mobile-label">Remitente</span>
+                          <strong>
+                            {receipt.message?.senderName ??
+                              receipt.extractedSenderName ??
+                              "Sin remitente"}
+                          </strong>
+                          <span className="table-secondary">
+                            {receipt.message?.bodyText
+                              ? truncateText(receipt.message.bodyText, 88)
+                              : receipt.guardian?.fullName ?? "Sin apoderado asociado"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="receipts-mobile-grid">
+                        <div className="receipts-mobile-item">
+                          <span className="receipts-mobile-label">Monto</span>
+                          <strong>
+                            {receipt.extractedAmountCents
+                              ? formatCurrencyFromCents(receipt.extractedAmountCents)
+                              : "Sin monto"}
+                          </strong>
+                          <span className="table-secondary">
+                            {receipt.extractedReference ?? "Sin referencia"}
+                          </span>
+                        </div>
+
+                        <div className="receipts-mobile-item">
+                          <span className="receipts-mobile-label">Confianza</span>
+                          {bestCandidate ? (
+                            <div className="compact-confidence receipts-mobile-confidence">
+                              <strong
+                                className={`confidence-score ${confidenceMeta?.tone ?? "neutral"}`}
+                              >
+                                {confidenceScore}%
+                              </strong>
+                              <StatusBadge
+                                label={confidenceMeta?.label ?? "Sin lectura"}
+                                tone={confidenceMeta?.tone ?? "neutral"}
+                              />
+                            </div>
+                          ) : (
+                            <div className="compact-confidence receipts-mobile-confidence">
+                              <strong className="confidence-score neutral">-</strong>
+                              <StatusBadge label="Sin sugerencia" tone="neutral" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="receipts-mobile-statuses">
+                        <div className="receipts-mobile-item receipts-mobile-item-status">
+                          <span className="receipts-mobile-label">Estado</span>
+                          <StatusBadge label={receiptMeta.label} tone={receiptMeta.tone} />
+                        </div>
+
+                        <div className="receipts-mobile-item receipts-mobile-item-status">
+                          <span className="receipts-mobile-label">Conciliación</span>
                           <div className="compact-reconciliation">
                             <ReconciliationMode
                               mode={
-                                bestReconciliation.status === "AUTO_CONFIRMED" ? "auto" : "manual"
+                                bestReconciliation
+                                  ? bestReconciliation.status === "AUTO_CONFIRMED"
+                                    ? "auto"
+                                    : "manual"
+                                  : receipt.status === "REJECTED"
+                                    ? "manual"
+                                    : "pending"
                               }
                             />
-                            <div className="table-secondary">
-                              {decisionMeta?.label ?? getReconciliationStatusMeta(bestReconciliation.status).label}
-                            </div>
+                            <div className="table-secondary">{reconciliationLabel}</div>
                           </div>
-                        ) : (
-                          <div className="compact-reconciliation">
-                            <ReconciliationMode
-                              mode={receipt.status === "REJECTED" ? "manual" : "pending"}
-                            />
-                            <div className="table-secondary">
-                              {decisionMeta?.label ?? (receipt.status === "REJECTED" ? "Rechazado" : "Pendiente")}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <div className="compact-actions">
-                          <a
-                            className="table-link"
-                            href={buildReceiptDetailHref(params, receipt.id, "detalle")}
-                          >
-                            Ver detalle
-                          </a>
-                          {bestReconciliation ? (
-                            <a
-                              className="table-link"
-                              href={buildReceiptDetailHref(params, receipt.id, "conciliacion")}
-                            >
-                              Ver conciliacion
-                            </a>
-                          ) : null}
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+
+                      <div className="receipts-mobile-footer">
+                        <a
+                          className="table-link receipts-mobile-action"
+                          href={buildReceiptDetailHref(params, receipt.id, "detalle")}
+                        >
+                          Ver detalle
+                        </a>
+                      </div>
+                    </article>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+
+              <table className="data-table data-table-compact receipts-table">
+                <thead>
+                  <tr>
+                    <th>Comprobante</th>
+                    <th>Origen</th>
+                    <th>Remitente</th>
+                    <th>Monto</th>
+                    <th>Confianza</th>
+                    <th>Estado</th>
+                    <th>Conciliación</th>
+                    <th>Accion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReceipts.map((receipt) => {
+                    const receiptMeta = getReceiptStatusMeta(receipt.status);
+                    const bestCandidate = receipt.candidateMatches[0];
+                    const confidenceMeta = bestCandidate
+                      ? getConfidenceMeta(bestCandidate.confidence)
+                      : null;
+                    const bestReconciliation = receipt.reconciliations[0];
+                    const decisionMeta = receipt.reviewTask?.decisionType
+                      ? getManualDecisionMeta(receipt.reviewTask.decisionType)
+                      : null;
+                    const confidenceScore = bestCandidate
+                      ? Math.round(bestCandidate.confidence * 100)
+                      : null;
+                    const suggestedStudentName =
+                      (bestCandidate?.studentId
+                        ? studentNameById.get(bestCandidate.studentId)
+                        : null) ??
+                      receipt.student?.fullName ??
+                      "Sin sugerencia";
+
+                    return (
+                      <tr key={receipt.id}>
+                        <td>
+                          <div className="table-primary">{receipt.originalFileName ?? receipt.id}</div>
+                          <div className="table-secondary">
+                            {getFileKindLabel(receipt.mimeType)} · {suggestedStudentName}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-primary">{getChannelLabel(receipt.channel)}</div>
+                          <div className="table-secondary">{getOriginSecondaryLine(receipt)}</div>
+                        </td>
+                        <td>
+                          <div className="table-primary">
+                            {receipt.message?.senderName ??
+                              receipt.extractedSenderName ??
+                              "Sin remitente"}
+                          </div>
+                          <div className="table-secondary">
+                            {receipt.message?.bodyText
+                              ? truncateText(receipt.message.bodyText)
+                              : receipt.guardian?.fullName ?? "Sin apoderado asociado"}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-primary compact-amount">
+                            {receipt.extractedAmountCents
+                              ? formatCurrencyFromCents(receipt.extractedAmountCents)
+                              : "Sin monto"}
+                          </div>
+                          <div className="table-secondary">
+                            {receipt.extractedReference ?? "Sin referencia"}
+                          </div>
+                        </td>
+                        <td>
+                          {bestCandidate ? (
+                            <div className="compact-confidence">
+                              <strong className={`confidence-score ${confidenceMeta?.tone ?? "neutral"}`}>
+                                {confidenceScore}%
+                              </strong>
+                              <StatusBadge
+                                label={confidenceMeta?.label ?? "Sin lectura"}
+                                tone={confidenceMeta?.tone ?? "neutral"}
+                              />
+                            </div>
+                          ) : (
+                            <div className="compact-confidence">
+                              <strong className="confidence-score neutral">-</strong>
+                              <StatusBadge label="Sin sugerencia" tone="neutral" />
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <StatusBadge label={receiptMeta.label} tone={receiptMeta.tone} />
+                        </td>
+                        <td>
+                          {bestReconciliation ? (
+                            <div className="compact-reconciliation">
+                              <ReconciliationMode
+                                mode={
+                                  bestReconciliation.status === "AUTO_CONFIRMED" ? "auto" : "manual"
+                                }
+                              />
+                              <div className="table-secondary">
+                                {decisionMeta?.label ?? getReconciliationStatusMeta(bestReconciliation.status).label}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="compact-reconciliation">
+                              <ReconciliationMode
+                                mode={receipt.status === "REJECTED" ? "manual" : "pending"}
+                              />
+                              <div className="table-secondary">
+                                {decisionMeta?.label ?? (receipt.status === "REJECTED" ? "Rechazado" : "Pendiente")}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div className="compact-actions">
+                            <a
+                              className="table-link"
+                              href={buildReceiptDetailHref(params, receipt.id, "detalle")}
+                            >
+                              Ver detalle
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
           )}
         </article>
       </div>
@@ -541,12 +669,15 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
             <div className="detail-drawer-header">
               <div className="stack" style={{ gap: 6 }}>
                 <span className="eyebrow">
-                  {drawerView === "conciliacion" ? "Detalle de conciliacion" : "Detalle del comprobante"}
+                  {drawerView === "conciliacion" ? "Trazabilidad de conciliación" : "Detalle del comprobante"}
                 </span>
                 <h2 className="card-title">
                   {selectedReceipt.originalFileName ?? selectedReceipt.id}
                 </h2>
-                <p className="drawer-note">{selectedCase?.reviewTask?.reason ?? "Caso abierto."}</p>
+                <p className="drawer-note">
+                  {selectedCase?.reviewTask?.reason ??
+                    "Consulta el origen, la lectura del sistema y el estado actual del comprobante."}
+                </p>
               </div>
               <div className="drawer-header-actions">
                 <div className="drawer-nav">
@@ -707,7 +838,7 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
                     </div>
                   </div>
                   <div className="drawer-item">
-                    <DrawerLabel token="ST" label="Estado y conciliacion" />
+                    <DrawerLabel token="ST" label="Estado y conciliación" />
                     <div className="drawer-inline-meta drawer-inline-meta-stack">
                       <StatusBadge
                         label={getReceiptStatusMeta(selectedReceipt.status).label}
@@ -756,8 +887,11 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
                 )}
               </section>
 
-              <section className="drawer-section drawer-section-actions">
-                <span className="eyebrow">Acciones</span>
+              <section className="drawer-section drawer-section-actions drawer-section-secondary">
+                <span className="eyebrow">Herramientas internas</span>
+                <p className="drawer-note">
+                  Esta zona queda en segundo plano. La resolución manual principal vive en Revisión de pago.
+                </p>
                 <ReceiptDrawerActions
                   receiptId={selectedReceipt.id}
                   defaultChargeId={selectedCandidate?.chargeId ?? null}
@@ -769,94 +903,6 @@ export default async function ReceiptsPage(props: { searchParams?: SearchParamsI
           </aside>
         </>
       ) : null}
-
-      <article className="data-panel" id="conciliaciones">
-        <div className="data-panel-header">
-          <span className="eyebrow">Conciliaciones</span>
-          <h2 className="card-title">Bandeja de resultados y trazabilidad</h2>
-          <p className="toolbar-note">Resultados visibles: {filteredReconciliations.length}</p>
-        </div>
-
-        {filteredReconciliations.length === 0 ? (
-          <div className="table-empty">
-            <EmptyState
-              title="Todavia no hay conciliaciones para mostrar"
-              description="Cuando el sistema cierre pagos o el equipo confirme casos manuales, los resultados apareceran aqui."
-            />
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Comprobante</th>
-                <th>Estado</th>
-                <th>Pago</th>
-                <th>Cargo aplicado</th>
-                <th>Decision</th>
-                <th>Trazabilidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReconciliations.map((reconciliation) => {
-                const reconciliationMeta = getReconciliationStatusMeta(reconciliation.status);
-
-                return (
-                  <tr key={reconciliation.id}>
-                    <td>
-                      <div className="cell-title">
-                        {reconciliation.receipt.originalFileName ?? reconciliation.receiptId}
-                      </div>
-                      <div className="cell-subtitle">
-                        {reconciliation.receipt.student?.fullName ??
-                          reconciliation.allocations[0]?.charge.student.fullName ??
-                          "Sin alumno"}
-                      </div>
-                    </td>
-                    <td>
-                      <StatusBadge
-                        label={reconciliationMeta.label}
-                        tone={reconciliationMeta.tone}
-                      />
-                      <div className="cell-subtitle">
-                        Score {Math.round(reconciliation.matchScore * 100)}%
-                      </div>
-                    </td>
-                    <td>
-                      <div>{formatCurrencyFromCents(reconciliation.payment.amountCents)}</div>
-                      <div className="cell-subtitle">
-                        {reconciliation.payment.senderName ?? "Sin remitente"}
-                      </div>
-                    </td>
-                    <td>
-                      {reconciliation.allocations[0] ? (
-                        <>
-                          <strong>{reconciliation.allocations[0].charge.description}</strong>
-                          <div className="cell-subtitle">
-                            {formatCurrencyFromCents(reconciliation.allocations[0].amountCents)}
-                          </div>
-                        </>
-                      ) : (
-                        "Sin asignacion"
-                      )}
-                    </td>
-                    <td>
-                      {reconciliation.status === "AUTO_CONFIRMED"
-                        ? "Automatica"
-                        : reconciliation.status === "CONFIRMED"
-                          ? "Confirmada por el equipo"
-                          : "Pendiente"}
-                    </td>
-                    <td>
-                      <div>{reconciliation.strategy}</div>
-                      <div className="cell-subtitle">{reconciliation.notes ?? "Sin notas"}</div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </article>
     </section>
   );
 }

@@ -28,7 +28,7 @@ export function LogoutButton(props: { fullWidth?: boolean }) {
       onClick={handleLogout}
       disabled={isSubmitting}
     >
-      {isSubmitting ? "Cerrando..." : "Cerrar sesion"}
+      {isSubmitting ? "Cerrando..." : "Cerrar sesión"}
     </button>
   );
 }

@@ -3,6 +3,10 @@ import { env } from "@/server/config/env";
 import { prisma } from "@/server/db/prisma";
 import { AppError } from "@/server/http/errors";
 import { queueSystemReply } from "@/server/services/messaging.service";
+import {
+  handleOnboardingTelegramUpdate,
+  shouldHandleOnboardingTelegramUpdate
+} from "@/server/services/onboarding.service";
 import { createInboundMessageWithReceipts, type InboundAttachment } from "@/server/services/receipts.service";
 import { parseTelegramUpdate } from "@/server/services/telegram.service";
 
@@ -52,7 +56,6 @@ export async function ingestTelegramWebhook(payload: Record<string, unknown>, sc
     throw new AppError("Telegram no esta habilitado", 503);
   }
 
-  const schoolId = await resolveSchoolId(schoolSlug);
   const parsed = parseTelegramUpdate(payload);
 
   if (!parsed) {
@@ -62,6 +65,11 @@ export async function ingestTelegramWebhook(payload: Record<string, unknown>, sc
     };
   }
 
+  if (await shouldHandleOnboardingTelegramUpdate(parsed)) {
+    return handleOnboardingTelegramUpdate(parsed);
+  }
+
+  const schoolId = await resolveSchoolId(schoolSlug);
   const result = await createInboundMessageWithReceipts({
     schoolId,
     channel: MessageChannel.TELEGRAM,
@@ -84,7 +92,8 @@ export async function ingestTelegramWebhook(payload: Record<string, unknown>, sc
       schoolId,
       channel: MessageChannel.TELEGRAM,
       recipient: parsed.senderHandle,
-      body: "Recibimos tu comprobante. Lo estamos procesando.",
+      body:
+        "Recibimos tu comprobante y ya lo estamos analizando. En breve te confirmaremos por este mismo chat si el pago pudo validarse automaticamente o si quedo en revision.",
       conversationId: result.message.conversationId,
       externalChatId: parsed.externalChatId,
       externalUserId: parsed.externalUserId,

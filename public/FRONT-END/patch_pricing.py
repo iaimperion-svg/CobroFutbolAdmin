@@ -78,7 +78,7 @@ NEW_SECTION = '''\
           <span class="plan-period">/ mes</span>
         </div>
         <div class="plan-equiv">\u2248 $25.000 CLP / mes &mdash; valor de 1 alumno base</div>
-        <div class="plan-limit" style="margin-bottom:20px;">Hasta 40 familias activas</div>
+        <div class="plan-limit" style="margin-bottom:20px;">Hasta 40 alumnos activos</div>
 
         <ul class="plan-features sp-features">
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Bot Telegram valida comprobantes con IA</li>
@@ -89,7 +89,7 @@ NEW_SECTION = '''\
           <li class="feat-disabled"><span class="feat-cross"><svg width="14" height="14"><use href="#ic-x"/></svg></span>Reportes exportables (plan Academia)</li>
         </ul>
 
-        <a href="#contacto" class="btn btn-semillero" style="margin-top:24px;" data-onboarding-link>
+        <a href="#contacto" class="btn btn-semillero" style="margin-top:24px;" data-onboarding-link data-onboarding-plan="SEMILLERO">
           <svg width="14" height="14"><use href="#ic-bolt"/></svg> Contratar Semillero
         </a>
         <p class="plan-note" style="margin-top:10px;">Sin tarjeta de cr\u00e9dito &nbsp;&middot;&nbsp; Cancela cuando quieras</p>
@@ -226,7 +226,7 @@ NEW_SECTION = '''\
           <span class="plan-period">/ mes</span>
         </div>
         <div class="plan-equiv" style="color:rgba(57,211,83,.8);">\u2248 $47.412 CLP / mes</div>
-        <div class="plan-limit" style="background:rgba(57,211,83,.2);border-color:rgba(57,211,83,.4);">Hasta 150 familias activas</div>
+        <div class="plan-limit" style="background:rgba(57,211,83,.2);border-color:rgba(57,211,83,.4);">Hasta 150 alumnos activos</div>
         <ul class="plan-features">
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Todo lo de Semillero incluido</li>
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Categor\u00edas ilimitadas</li>
@@ -236,7 +236,7 @@ NEW_SECTION = '''\
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Soporte prioritario por Telegram</li>
           <li class="feat-disabled"><span class="feat-cross"><svg width="14" height="14"><use href="#ic-x"/></svg></span>Multi-sede / multi-rama</li>
         </ul>
-        <a href="#contacto" class="btn btn-primary" style="width:100%;justify-content:center;" data-onboarding-link>
+        <a href="#contacto" class="btn btn-primary" style="width:100%;justify-content:center;" data-onboarding-link data-onboarding-plan="ACADEMIA">
           <svg width="14" height="14"><use href="#ic-bolt"/></svg> Contratar Academia
         </a>
         <p class="plan-note">Primer mes completamente gratis</p>
@@ -255,7 +255,7 @@ NEW_SECTION = '''\
           <span class="plan-period">/ mes</span>
         </div>
         <div class="plan-equiv">\u2248 $71.316 CLP / mes</div>
-        <div class="plan-limit">Familias ilimitadas</div>
+        <div class="plan-limit">Alumnos ilimitados</div>
         <ul class="plan-features">
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Todo lo de Academia incluido</li>
           <li><span class="feat-check"><svg width="14" height="14"><use href="#ic-check"/></svg></span>Hasta 5 sedes o ramas activas</li>
@@ -276,7 +276,7 @@ NEW_SECTION = '''\
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <div class="sn-body">
-        <strong>Sobre el precio de Semillero:</strong> El plan parte desde el valor mensual de 1 alumno base en academias chilenas (\u2248 $25.000 CLP). Si cobras m\u00e1s por alumno, el costo de CobroFutbol es todav\u00eda menor en proporci\u00f3n. Con ordenar el cobro de 1 sola familia, ya lo amortizas.
+        <strong>Sobre el precio de Semillero:</strong> El plan parte desde el valor mensual de 1 alumno base en academias chilenas (\u2248 $25.000 CLP). Si cobras m\u00e1s por alumno, el costo de CobroFutbol es todav\u00eda menor en proporci\u00f3n. Con ordenar el cobro de 1 solo alumno, ya lo amortizas.
         <span class="sn-sep">&nbsp;\u00b7&nbsp;</span>Valores referenciales en pesos al tipo de cambio UF del d\u00eda.
         <span class="sn-sep">&nbsp;\u00b7&nbsp;</span>IVA incluido.
       </div>

@@ -26,7 +26,7 @@ const actionTabs: Array<{ mode: ActionMode; label: string }> = [
   { mode: "reassign", label: "Reasignar" },
   { mode: "manual-payment", label: "Pago manual" },
   { mode: "reprocess", label: "Reprocesar" },
-  { mode: "note", label: "Observacion" }
+  { mode: "note", label: "Observación" }
 ];
 
 const rejectionOptions = [
@@ -43,9 +43,9 @@ function formatChargeLabel(option: ChargeOption) {
     dateStyle: "short"
   }).format(new Date(option.dueDate));
 
-  return `${option.studentName} · ${option.description} · ${formatCurrencyFromCents(
+  return `${option.studentName} | ${option.description} | ${formatCurrencyFromCents(
     option.outstandingCents
-  )} pendientes · vence ${dueDate}`;
+  )} pendientes | vence ${dueDate}`;
 }
 
 async function readJson(response: Response) {
@@ -103,7 +103,8 @@ export function ReceiptDrawerActions(props: {
     );
   });
 
-  const suggestedCharge = props.chargeOptions.find((option) => option.id === props.defaultChargeId) ?? null;
+  const suggestedCharge =
+    props.chargeOptions.find((option) => option.id === props.defaultChargeId) ?? null;
   const currentDecisionMeta = props.existingDecisionType
     ? getManualDecisionMeta(props.existingDecisionType)
     : null;
@@ -135,7 +136,7 @@ export function ReceiptDrawerActions(props: {
 
     if (!response.ok) {
       setFeedbackTone("error");
-      setFeedback(payload.error ?? "No se pudo completar la accion.");
+      setFeedback(payload.error ?? "No se pudo completar la acción.");
       return false;
     }
 
@@ -149,7 +150,7 @@ export function ReceiptDrawerActions(props: {
     <div className="drawer-actions-block">
       {currentDecisionMeta ? (
         <div className="drawer-current-decision">
-          <span className="drawer-label">Ultima resolucion</span>
+          <span className="drawer-label">Última resolución</span>
           <StatusBadge label={currentDecisionMeta.label} tone={currentDecisionMeta.tone} />
         </div>
       ) : null}
@@ -174,18 +175,18 @@ export function ReceiptDrawerActions(props: {
             <div className="drawer-copy-block compact">
               <p>
                 {suggestedCharge
-                  ? `Aprobaras la sugerencia actual para ${suggestedCharge.studentName}.`
-                  : "No hay un cargo sugerido para aprobar automaticamente."}
+                  ? `Aprobarás la sugerencia actual para ${suggestedCharge.studentName}.`
+                  : "No hay un cargo sugerido para aprobar automáticamente."}
               </p>
               {suggestedCharge ? <strong>{formatChargeLabel(suggestedCharge)}</strong> : null}
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor={`approve-notes-${props.receiptId}`}>Observacion de cierre</label>
+              <label htmlFor={`approve-notes-${props.receiptId}`}>Observación de cierre</label>
               <textarea
                 id={`approve-notes-${props.receiptId}`}
                 value={approveNotes}
                 onChange={(event) => setApproveNotes(event.target.value)}
-                placeholder="Opcional. Explica por que se aprueba esta conciliacion."
+                placeholder="Opcional. Explica por qué se aprueba esta conciliación."
                 rows={3}
               />
             </div>
@@ -201,12 +202,12 @@ export function ReceiptDrawerActions(props: {
                     chargeId: props.defaultChargeId,
                     resolutionNotes: approveNotes || undefined
                   },
-                  "Conciliacion aprobada correctamente.",
-                  "¿Confirmas que deseas aprobar la conciliacion sugerida?"
+                  "Conciliación aprobada correctamente.",
+                  "¿Confirmas que deseas aprobar la conciliación sugerida?"
                 )
               }
             >
-              {savingAction === "approve" ? "Aprobando..." : "Aprobar conciliacion"}
+              {savingAction === "approve" ? "Aprobando..." : "Aprobar conciliación"}
             </button>
           </div>
         ) : null}
@@ -228,12 +229,12 @@ export function ReceiptDrawerActions(props: {
               </select>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor={`reject-notes-${props.receiptId}`}>Observacion interna</label>
+              <label htmlFor={`reject-notes-${props.receiptId}`}>Observación interna</label>
               <textarea
                 id={`reject-notes-${props.receiptId}`}
                 value={rejectNotes}
                 onChange={(event) => setRejectNotes(event.target.value)}
-                placeholder="Explica por que se rechaza el caso y que deberia revisarse despues."
+                placeholder="Explica por qué se rechaza el caso y qué debería revisarse después."
                 rows={3}
               />
             </div>
@@ -250,7 +251,7 @@ export function ReceiptDrawerActions(props: {
                     resolutionNotes: rejectNotes || undefined
                   },
                   "Comprobante rechazado correctamente.",
-                  "¿Confirmas que deseas rechazar esta conciliacion sugerida?"
+                  "¿Confirmas que deseas rechazar esta conciliación sugerida?"
                 )
               }
             >
@@ -267,7 +268,7 @@ export function ReceiptDrawerActions(props: {
                 id={`reassign-search-${props.receiptId}`}
                 value={reassignSearch}
                 onChange={(event) => setReassignSearch(event.target.value)}
-                placeholder="Buscar por alumno, apoderado, cargo o periodo"
+                placeholder="Buscar por alumno, apoderado, cargo o período"
               />
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
@@ -286,12 +287,12 @@ export function ReceiptDrawerActions(props: {
               </select>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor={`reassign-notes-${props.receiptId}`}>Observacion de reasignacion</label>
+              <label htmlFor={`reassign-notes-${props.receiptId}`}>Observación de reasignación</label>
               <textarea
                 id={`reassign-notes-${props.receiptId}`}
                 value={reassignNotes}
                 onChange={(event) => setReassignNotes(event.target.value)}
-                placeholder="Opcional. Explica por que se reasigna el comprobante."
+                placeholder="Opcional. Explica por qué se reasigna el comprobante."
                 rows={3}
               />
             </div>
@@ -313,11 +314,11 @@ export function ReceiptDrawerActions(props: {
                     resolutionNotes: reassignNotes || undefined
                   },
                   "Comprobante reasignado correctamente.",
-                  "¿Confirmas la reasignacion de este comprobante al nuevo destino?"
+                  "¿Confirmas la reasignación de este comprobante al nuevo destino?"
                 );
               }}
             >
-              {savingAction === "reassign" ? "Reasignando..." : "Confirmar reasignacion"}
+              {savingAction === "reassign" ? "Reasignando..." : "Confirmar reasignación"}
             </button>
           </div>
         ) : null}
@@ -330,7 +331,7 @@ export function ReceiptDrawerActions(props: {
                 id={`manual-search-${props.receiptId}`}
                 value={manualSearch}
                 onChange={(event) => setManualSearch(event.target.value)}
-                placeholder="Buscar por alumno, apoderado, cargo o periodo"
+                placeholder="Buscar por alumno, apoderado, cargo o período"
               />
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
@@ -349,12 +350,12 @@ export function ReceiptDrawerActions(props: {
               </select>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor={`manual-notes-${props.receiptId}`}>Observacion del pago manual</label>
+              <label htmlFor={`manual-notes-${props.receiptId}`}>Observación del pago manual</label>
               <textarea
                 id={`manual-notes-${props.receiptId}`}
                 value={manualNotes}
                 onChange={(event) => setManualNotes(event.target.value)}
-                placeholder="Explica por que se confirma este pago manualmente."
+                placeholder="Explica por qué se confirma este pago manualmente."
                 rows={3}
               />
             </div>
@@ -383,9 +384,7 @@ export function ReceiptDrawerActions(props: {
         {activeMode === "reprocess" ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="drawer-copy-block compact">
-              <p>
-                Reprocesar vuelve a correr el matching del comprobante y refresca sus sugerencias.
-              </p>
+              <p>Reprocesar vuelve a correr el matching del comprobante y refresca sus sugerencias.</p>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor={`reprocess-notes-${props.receiptId}`}>Motivo del reproceso</label>
@@ -393,7 +392,7 @@ export function ReceiptDrawerActions(props: {
                 id={`reprocess-notes-${props.receiptId}`}
                 value={reprocessNotes}
                 onChange={(event) => setReprocessNotes(event.target.value)}
-                placeholder="Opcional. Indica que cambio o por que deseas reintentar el caso."
+                placeholder="Opcional. Indica qué cambió o por qué deseas reintentar el caso."
                 rows={3}
               />
             </div>
@@ -421,12 +420,12 @@ export function ReceiptDrawerActions(props: {
         {activeMode === "note" ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor={`internal-note-${props.receiptId}`}>Observacion interna</label>
+              <label htmlFor={`internal-note-${props.receiptId}`}>Observación interna</label>
               <textarea
                 id={`internal-note-${props.receiptId}`}
                 value={noteBody}
                 onChange={(event) => setNoteBody(event.target.value)}
-                placeholder="Deja contexto para el siguiente revisor o para auditoria."
+                placeholder="Deja contexto para el siguiente revisor o para auditoría."
                 rows={4}
               />
             </div>
@@ -441,7 +440,7 @@ export function ReceiptDrawerActions(props: {
                   {
                     body: noteBody
                   },
-                  "Observacion guardada correctamente."
+                  "Observación guardada correctamente."
                 );
 
                 if (ok) {
@@ -449,7 +448,7 @@ export function ReceiptDrawerActions(props: {
                 }
               }}
             >
-              {savingAction === "note" ? "Guardando..." : "Guardar observacion"}
+              {savingAction === "note" ? "Guardando..." : "Guardar observación"}
             </button>
           </div>
         ) : null}
@@ -462,7 +461,7 @@ export function ReceiptDrawerActions(props: {
           </span>
         ) : (
           <span className="drawer-actions-hint">
-            Elige una accion, confirma y la bandeja se actualizara al instante.
+            Elige una acción, confirma y la bandeja se actualizará al instante.
           </span>
         )}
       </div>

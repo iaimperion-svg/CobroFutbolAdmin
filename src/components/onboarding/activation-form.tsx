@@ -69,24 +69,28 @@ export function ActivationForm(props: {
 
   if (!props.snapshot) {
     return (
-      <section className="login-card stack onboarding-form">
-        <span className="eyebrow">Activacion vencida</span>
-        <h1 className="app-title">El enlace ya no esta disponible.</h1>
-        <p className="muted">
-          Pidele al equipo de onboarding que te reenvie un nuevo acceso para completar el alta.
-        </p>
+      <section className="login-card stack onboarding-form onboarding-panel activation-panel">
+        <div className="stack onboarding-card-header">
+          <span className="eyebrow">Activacion vencida</span>
+          <h1 className="app-title onboarding-panel-title">El enlace ya no esta disponible.</h1>
+          <p className="muted">
+            Pidele al equipo de onboarding que te reenvie un nuevo acceso para completar el alta.
+          </p>
+        </div>
       </section>
     );
   }
 
   if (activated) {
     return (
-      <section className="login-card stack onboarding-success-card">
-        <span className="eyebrow">Cuenta activada</span>
-        <h1 className="app-title">Tu acceso ya quedo listo.</h1>
-        <p className="muted">
-          La academia <strong>{props.snapshot.academyName}</strong> ya puede entrar al portal.
-        </p>
+      <section className="login-card stack onboarding-success-card onboarding-panel activation-panel">
+        <div className="stack onboarding-card-header">
+          <span className="eyebrow">Cuenta activada</span>
+          <h1 className="app-title onboarding-panel-title">Tu acceso ya quedo listo.</h1>
+          <p className="muted">
+            La academia <strong>{props.snapshot.academyName}</strong> ya puede entrar al portal.
+          </p>
+        </div>
         <Link href="/login" className="button button-block">
           Ir al login
         </Link>
@@ -100,17 +104,31 @@ export function ActivationForm(props: {
   }).format(new Date(props.snapshot.expiresAt));
 
   return (
-    <form onSubmit={handleSubmit} className="login-card stack onboarding-form">
-      <div className="stack" style={{ gap: 8 }}>
+    <form
+      onSubmit={handleSubmit}
+      className="login-card stack onboarding-form onboarding-panel activation-panel activation-material-panel"
+    >
+      <div className="stack onboarding-card-header">
         <span className="eyebrow">Activacion final</span>
-        <h1 className="app-title">Define tu contrasena de acceso.</h1>
-        <p className="muted">
-          {props.snapshot.fullName}, estas activando <strong>{props.snapshot.academyName}</strong>.
-          Este enlace vence el {expiryLabel}.
+        <h1 className="app-title onboarding-panel-title activation-panel-title">Define tu contrasena de acceso.</h1>
+        <p className="muted activation-panel-copy">
+          {props.snapshot.fullName}, estas activando{" "}
+          <strong className="activation-panel-copy-academy">{props.snapshot.academyName}</strong>.
         </p>
       </div>
 
-      <div className="field" style={{ marginBottom: 0 }}>
+      <div className="onboarding-inline-meta">
+        <div className="onboarding-kv-card">
+          <span>Academia</span>
+          <strong>{props.snapshot.academyName}</strong>
+        </div>
+        <div className="onboarding-kv-card">
+          <span>Vence</span>
+          <strong>{expiryLabel}</strong>
+        </div>
+      </div>
+
+      <div className="field onboarding-material-field activation-material-field" style={{ marginBottom: 0 }}>
         <label htmlFor="activation-password">Nueva contrasena</label>
         <input
           id="activation-password"
@@ -121,7 +139,7 @@ export function ActivationForm(props: {
         />
       </div>
 
-      <div className="field" style={{ marginBottom: 0 }}>
+      <div className="field onboarding-material-field activation-material-field" style={{ marginBottom: 0 }}>
         <label htmlFor="activation-confirm">Repite la contrasena</label>
         <input
           id="activation-confirm"
@@ -134,7 +152,7 @@ export function ActivationForm(props: {
 
       {error ? <p className="form-feedback danger">{error}</p> : null}
 
-      <button className="button button-block" type="submit" disabled={saving}>
+      <button className="button button-block onboarding-primary-button" type="submit" disabled={saving}>
         {saving ? "Activando acceso..." : "Activar mi cuenta"}
       </button>
     </form>

@@ -39,6 +39,7 @@ La configuracion paso a paso de Telegram esta en [docs/telegram-integration.md](
 ```env
 TELEGRAM_ENABLED="false"
 TELEGRAM_BOT_TOKEN=""
+TELEGRAM_BOT_USERNAME=""
 TELEGRAM_WEBHOOK_URL=""
 TELEGRAM_WEBHOOK_SECRET=""
 ONBOARDING_TELEGRAM_ENABLED="false"
@@ -46,15 +47,26 @@ ONBOARDING_TELEGRAM_BOT_TOKEN=""
 ONBOARDING_TELEGRAM_BOT_USERNAME=""
 ONBOARDING_TELEGRAM_WEBHOOK_URL=""
 ONBOARDING_TELEGRAM_WEBHOOK_SECRET=""
+ONBOARDING_PAYMENT_BANK_NAME=""
+ONBOARDING_PAYMENT_ACCOUNT_TYPE=""
+ONBOARDING_PAYMENT_ACCOUNT_NUMBER=""
+ONBOARDING_PAYMENT_HOLDER_NAME=""
+ONBOARDING_PAYMENT_HOLDER_RUT=""
+ONBOARDING_PAYMENT_EMAIL=""
 ```
 
 Cuando `TELEGRAM_ENABLED=true`, el endpoint real queda disponible en:
 
 `/api/v1/webhooks/telegram?schoolSlug=<slug-de-la-escuela>`
 
+Si completas `TELEGRAM_BOT_USERNAME`, el flujo de onboarding tambien puede reutilizar ese mismo bot para generar el deep link publico.
+
 Cuando `ONBOARDING_TELEGRAM_ENABLED=true`, el bot de alta usa:
 
 `/api/v1/onboarding/webhooks/telegram`
+
+Cuando completes `ONBOARDING_PAYMENT_*`, la pantalla de exito de `/alta` mostrara banco,
+tipo de cuenta, numero, titular y correo para que el cliente sepa donde transferir.
 
 ## Onboarding de escuelas
 

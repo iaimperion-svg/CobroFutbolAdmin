@@ -4,7 +4,9 @@ import { MessageChannel } from "@prisma/client";
 const mocks = vi.hoisted(() => ({
   findSchool: vi.fn(),
   createInboundMessageWithReceipts: vi.fn(),
-  queueSystemReply: vi.fn()
+  queueSystemReply: vi.fn(),
+  shouldHandleOnboardingTelegramUpdate: vi.fn(),
+  handleOnboardingTelegramUpdate: vi.fn()
 }));
 
 vi.mock("@/server/config/env", () => ({
@@ -29,6 +31,11 @@ vi.mock("@/server/services/messaging.service", () => ({
   queueSystemReply: mocks.queueSystemReply
 }));
 
+vi.mock("@/server/services/onboarding.service", () => ({
+  shouldHandleOnboardingTelegramUpdate: mocks.shouldHandleOnboardingTelegramUpdate,
+  handleOnboardingTelegramUpdate: mocks.handleOnboardingTelegramUpdate
+}));
+
 import { ingestTelegramWebhook } from "@/server/services/webhook-ingestion.service";
 
 describe("ingestTelegramWebhook", () => {
@@ -36,10 +43,13 @@ describe("ingestTelegramWebhook", () => {
     mocks.findSchool.mockReset();
     mocks.createInboundMessageWithReceipts.mockReset();
     mocks.queueSystemReply.mockReset();
+    mocks.shouldHandleOnboardingTelegramUpdate.mockReset();
+    mocks.handleOnboardingTelegramUpdate.mockReset();
 
     mocks.findSchool.mockResolvedValue({
       id: "school-1"
     });
+    mocks.shouldHandleOnboardingTelegramUpdate.mockResolvedValue(false);
   });
 
   it("normaliza el update y crea mensaje con comprobante", async () => {
@@ -105,7 +115,7 @@ describe("ingestTelegramWebhook", () => {
         schoolId: "school-1",
         channel: MessageChannel.TELEGRAM,
         recipient: "6001",
-        body: "Recibimos tu comprobante. Lo estamos procesando."
+        body: expect.stringContaining("ya lo estamos analizando")
       })
     );
   });
@@ -125,6 +135,51 @@ describe("ingestTelegramWebhook", () => {
       ignored: true,
       reason: "Update de Telegram sin mensaje compatible"
     });
+    expect(mocks.createInboundMessageWithReceipts).not.toHaveBeenCalled();
+    expect(mocks.queueSystemReply).not.toHaveBeenCalled();
+  });
+
+  it("deriva al flujo de onboarding cuando el chat corresponde a una solicitud de alta", async () => {
+    mocks.handleOnboardingTelegramUpdate.mockResolvedValue({
+      linked: true,
+      publicCode: "PG-ONB123"
+    });
+    mocks.shouldHandleOnboardingTelegramUpdate.mockResolvedValue(true);
+
+    const result = await ingestTelegramWebhook(
+      {
+        update_id: 20003,
+        message: {
+          message_id: 78,
+          date: 1_775_712_120,
+          from: {
+            id: 5002,
+            first_name: "Patricio",
+            username: "pato_dev"
+          },
+          chat: {
+            id: 6002,
+            type: "private",
+            first_name: "Patricio",
+            username: "pato_dev"
+          },
+          text: "/start onb_token-demo"
+        }
+      },
+      "academia-central"
+    );
+
+    expect(result).toEqual({
+      linked: true,
+      publicCode: "PG-ONB123"
+    });
+    expect(mocks.handleOnboardingTelegramUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        externalId: "6002:78",
+        externalChatId: "6002",
+        bodyText: "/start onb_token-demo"
+      })
+    );
     expect(mocks.createInboundMessageWithReceipts).not.toHaveBeenCalled();
     expect(mocks.queueSystemReply).not.toHaveBeenCalled();
   });

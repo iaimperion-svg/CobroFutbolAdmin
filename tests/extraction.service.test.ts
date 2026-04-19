@@ -43,4 +43,14 @@ describe("extractPaymentDataFromText", () => {
     expect(result.reference).toBe("BG-Y7G-13385961");
     expect(result.paidAt?.toISOString()).toContain("2026-04-10");
   });
+
+  it("extrae el monto desde OCR de comprobante Scotiabank con bloque 'Monto transferido'", () => {
+    const result = extractPaymentDataFromText(
+      "Scotiabank Comprobante de Transferencia Fecha 15 de diciembre de 2024 Numero de Operacion 123456789 Titular MAURO I. MORENO Correo MAURO.MORENO.O@GMAIL.COM Monto transferido $39.900 Pre-calentamiento de activacion CobroFutbol Referencia Pre-calentamiento CobroFutbol - Solicitud PG-UAJENA Transferencia Exitosa"
+    );
+
+    expect(result.amountCents).toBe(3990000);
+    expect(result.bankName).toBe("scotiabank");
+    expect(result.reference).toContain("PG-UAJENA");
+  });
 });

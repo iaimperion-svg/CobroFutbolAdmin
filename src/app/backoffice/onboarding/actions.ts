@@ -10,6 +10,18 @@ import {
 import { getErrorMessage } from "@/server/http/errors";
 import { approveOnboardingRequest, rejectOnboardingRequest } from "@/server/services/onboarding.service";
 
+function rethrowRedirectError(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "digest" in error &&
+    typeof (error as { digest?: unknown }).digest === "string" &&
+    (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  ) {
+    throw error;
+  }
+}
+
 function redirectToBackoffice(params: Record<string, string>) {
   const nextParams = new URLSearchParams(params);
   const query = nextParams.toString();
@@ -44,18 +56,26 @@ export async function approveOnboardingReviewAction(formData: FormData) {
       reviewSecret
     });
 
+    const emailDelivered = result.delivery.delivered;
+    const telegramDelivered = result.telegramDelivery.delivered;
+    const notice =
+      emailDelivered && telegramDelivered
+        ? `Solicitud ${result.publicCode} aprobada. Link enviado por correo y Telegram; acceso manual disponible.`
+        : emailDelivered
+          ? `Solicitud ${result.publicCode} aprobada. Correo enviado; acceso manual disponible.`
+          : telegramDelivered
+            ? `Solicitud ${result.publicCode} aprobada. Link enviado por Telegram; acceso manual disponible.`
+            : `Solicitud ${result.publicCode} aprobada. No se pudo enviar el acceso automatico; comparte el enlace manualmente.`;
+
     revalidatePath("/backoffice/onboarding");
-    redirectToBackoffice(
-      result.delivery.delivered
-        ? {
-            notice: `Solicitud ${result.publicCode} aprobada y correo enviado.`
-          }
-        : {
-            notice: `Solicitud ${result.publicCode} aprobada. El acceso quedo listo para envio manual.`,
-            activationUrl: result.activationUrl
-          }
-    );
+    redirectToBackoffice({
+      notice,
+      activationUrl: result.activationUrl,
+      publicCode: result.publicCode,
+      deliveryMode: result.delivery.mode
+    });
   } catch (error) {
+    rethrowRedirectError(error);
     redirectToBackoffice({
       error: getErrorMessage(error)
     });
@@ -79,6 +99,7 @@ export async function rejectOnboardingReviewAction(formData: FormData) {
       notice: "Solicitud rechazada y registrada en la bandeja."
     });
   } catch (error) {
+    rethrowRedirectError(error);
     redirectToBackoffice({
       error: getErrorMessage(error)
     });

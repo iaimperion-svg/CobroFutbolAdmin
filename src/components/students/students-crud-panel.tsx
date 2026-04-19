@@ -1,9 +1,8 @@
 "use client";
 
 import { ContactChannel } from "@prisma/client";
-import { startTransition, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -34,11 +33,6 @@ type StudentRow = {
   }>;
 };
 
-type ApiResponse<T> = {
-  data?: T;
-  error?: string;
-};
-
 const currencyFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
   currency: "CLP",
@@ -61,7 +55,7 @@ function getCategoryLabel(notes: string | null) {
   const normalized = (notes ?? "").trim();
 
   if (!normalized) {
-    return "Sin categoria";
+    return "Sin categoría";
   }
 
   return normalized
@@ -70,6 +64,19 @@ function getCategoryLabel(notes: string | null) {
     .replace(/\s*-\s*/g, "-")
     .replace(/\s+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getContactChannelLabel(channel: ContactChannel | null | undefined) {
+  switch (channel) {
+    case "WHATSAPP":
+      return "WhatsApp";
+    case "EMAIL":
+      return "Email";
+    case "TELEGRAM":
+      return "Telegram";
+    default:
+      return "Sin canal definido";
+  }
 }
 
 function readOutstanding(student: StudentRow) {
@@ -95,7 +102,7 @@ function readMonthlyChargeSummary(student: StudentRow, reviewPeriod: string) {
     statusLabel: !hasCharge
       ? "Sin cargo del mes"
       : isConsolidated
-        ? "Consolidada"
+        ? "Al día"
         : isOverdue
           ? "Vencida"
           : isPartial
@@ -111,83 +118,29 @@ function readMonthlyChargeSummary(student: StudentRow, reviewPeriod: string) {
   };
 }
 
-function EditIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-4-4L4 16v4Z" />
-      <path d="m13.5 6.5 4 4" />
-    </svg>
-  );
-}
-
-function DeleteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 7h16" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-      <path d="M9 4h6" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="m4 10 4 4 8-8" />
-    </svg>
-  );
-}
-
 export function StudentsCrudPanel(props: {
   initialStudents: StudentRow[];
   isFiltered: boolean;
   reviewPeriod: string;
   reviewPeriodLabel: string;
   activeCategoryLabel: string;
+  mode?: "students" | "monthly";
 }) {
-  const router = useRouter();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const students = useMemo(() => sortByName(props.initialStudents), [props.initialStudents]);
-
-  async function handleDelete(student: StudentRow) {
-    const accepted = window.confirm(
-      `Se eliminara el alumno "${student.fullName}". Esta accion no se puede deshacer.`
-    );
-
-    if (!accepted) {
-      return;
-    }
-
-    setDeletingId(student.id);
-
-    try {
-      const response = await fetch(`/api/v1/students/${student.id}`, {
-        method: "DELETE"
-      });
-      const payload = (await response.json()) as ApiResponse<{ deleted: boolean }>;
-
-      if (!response.ok) {
-        window.alert(payload.error ?? "No se pudo eliminar el alumno.");
-        return;
-      }
-
-      startTransition(() => {
-        router.refresh();
-      });
-    } finally {
-      setDeletingId(null);
-    }
-  }
+  const isMonthlyMode = (props.mode ?? "students") === "monthly";
+  const emptyActionHref = isMonthlyMode ? "/app/reviews/monthly" : "/app/students";
+  const createActionHref = "/app/students/new";
 
   return (
     <article className="data-panel">
       <div className="data-panel-header">
-        <span className="eyebrow">Revision mensual</span>
-        <h2 className="card-title">Alumnos por categoria y estado del mes</h2>
+        <span className="eyebrow">{isMonthlyMode ? "Cobro mensual" : "Alumnos"}</span>
+        <h2 className="card-title">
+          {isMonthlyMode ? "Detalle por alumno del mes" : "Base maestra operativa"}
+        </h2>
         <p className="toolbar-note">
-          {props.reviewPeriodLabel} | {props.activeCategoryLabel} | {students.length} resultados
+          {props.reviewPeriodLabel} | {props.activeCategoryLabel} | {students.length} alumno
+          {students.length === 1 ? "" : "s"}
         </p>
       </div>
       {students.length === 0 ? (
@@ -196,29 +149,307 @@ export function StudentsCrudPanel(props: {
             title={
               props.isFiltered
                 ? "No encontramos alumnos con esos filtros"
-                : "Todavia no hay alumnos registrados"
+                : "Todavía no hay alumnos registrados"
             }
             description={
               props.isFiltered
-                ? "Prueba con otra categoria, otro nombre o limpia los filtros para recuperar la vista completa."
+                ? "Prueba con otra categoría, otro nombre o limpia los filtros para recuperar la vista completa."
                 : "Crea tu primer alumno y asigna su apoderado principal para comenzar a operar."
             }
-            actionHref={props.isFiltered ? "/app/students" : "/app/students/new"}
-            actionLabel={props.isFiltered ? "Ver todos los alumnos" : "Nuevo alumno"}
+            actionHref={props.isFiltered ? emptyActionHref : createActionHref}
+            actionLabel={props.isFiltered ? "Limpiar vista" : "Nuevo alumno"}
           />
         </div>
+      ) : isMonthlyMode ? (
+        <>
+          <div className="monthly-mobile-student-list">
+            {students.map((student) => {
+              const primaryGuardian = getPrimaryGuardian(student);
+              const categoryLabel = getCategoryLabel(student.notes);
+              const monthlySummary = readMonthlyChargeSummary(student, props.reviewPeriod);
+
+              return (
+                <article key={student.id} className="monthly-mobile-student-card">
+                  <div className="monthly-mobile-student-top">
+                    <div className="monthly-mobile-student-copy">
+                      <div className="cell-title">{student.fullName}</div>
+                      <div className="cell-subtitle">
+                        {student.externalCode ?? "Sin código interno"} | cuota{" "}
+                        {student.monthlyFeeCents
+                          ? formatCurrencyFromCents(student.monthlyFeeCents)
+                          : "sin definir"}
+                      </div>
+                    </div>
+                    <span
+                      className={`pill ${
+                        !monthlySummary.hasCharge
+                          ? "neutral"
+                          : monthlySummary.isConsolidated
+                            ? "success"
+                            : monthlySummary.statusTone === "danger"
+                              ? "danger"
+                              : "warning"
+                      }`}
+                    >
+                      {!monthlySummary.hasCharge
+                        ? "Sin cargo"
+                        : monthlySummary.isConsolidated
+                          ? "Al día"
+                          : monthlySummary.statusTone === "danger"
+                            ? "Revisar hoy"
+                            : monthlySummary.statusLabel}
+                    </span>
+                  </div>
+
+                  <div className="monthly-mobile-student-grid">
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Categoría</span>
+                      <strong>{categoryLabel}</strong>
+                      <span className="table-secondary">Día de cobro {student.billingDay}</span>
+                    </div>
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Apoderado</span>
+                      <strong>{primaryGuardian?.guardian.fullName ?? "Sin apoderado"}</strong>
+                      <span className="table-secondary">
+                        {primaryGuardian ? primaryGuardian.relationship : "Sin responsable"}
+                      </span>
+                    </div>
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Estado del mes</span>
+                      <StatusBadge
+                        label={monthlySummary.statusLabel}
+                        tone={monthlySummary.statusTone}
+                      />
+                      <span className="table-secondary">
+                        {monthlySummary.hasCharge
+                          ? `Facturado ${formatCurrencyFromCents(monthlySummary.billedCents)}`
+                          : "No hay cargo emitido para este mes"}
+                      </span>
+                    </div>
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Facturado</span>
+                      <strong>{formatCurrencyFromCents(monthlySummary.billedCents)}</strong>
+                    </div>
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Pendiente</span>
+                      <strong>{formatCurrencyFromCents(monthlySummary.outstandingCents)}</strong>
+                    </div>
+                    <div className="monthly-mobile-item">
+                      <span className="monthly-mobile-label">Seguimiento</span>
+                      <span
+                        className={`pill ${
+                          !monthlySummary.hasCharge
+                            ? "neutral"
+                            : monthlySummary.isConsolidated
+                              ? "success"
+                              : monthlySummary.statusTone === "danger"
+                                ? "danger"
+                                : "warning"
+                        }`}
+                      >
+                        {!monthlySummary.hasCharge
+                          ? "Sin cargo"
+                          : monthlySummary.isConsolidated
+                            ? "Al día"
+                            : monthlySummary.statusTone === "danger"
+                              ? "Revisar hoy"
+                              : monthlySummary.statusLabel}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <table className="data-table monthly-students-table">
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Categoría</th>
+                <th>Apoderado</th>
+                <th>Estado del mes</th>
+                <th>Facturado</th>
+                <th>Pendiente</th>
+                <th>Seguimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map((student) => {
+                const primaryGuardian = getPrimaryGuardian(student);
+                const categoryLabel = getCategoryLabel(student.notes);
+                const monthlySummary = readMonthlyChargeSummary(student, props.reviewPeriod);
+
+                return (
+                  <tr key={student.id}>
+                    <td>
+                      <div className="cell-title">{student.fullName}</div>
+                      <div className="cell-subtitle">
+                        {student.externalCode ?? "Sin código interno"} | cuota{" "}
+                        {student.monthlyFeeCents
+                          ? formatCurrencyFromCents(student.monthlyFeeCents)
+                          : "sin definir"}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="table-primary">{categoryLabel}</div>
+                      <div className="table-secondary">Día de cobro {student.billingDay}</div>
+                    </td>
+                    <td>
+                      <div className="cell-title">{primaryGuardian?.guardian.fullName ?? "Sin apoderado"}</div>
+                      <div className="cell-subtitle">
+                        {primaryGuardian ? primaryGuardian.relationship : "Sin responsable"}
+                      </div>
+                    </td>
+                    <td>
+                      <StatusBadge label={monthlySummary.statusLabel} tone={monthlySummary.statusTone} />
+                      <div className="table-secondary">
+                        {monthlySummary.hasCharge
+                          ? `Facturado ${formatCurrencyFromCents(monthlySummary.billedCents)}`
+                          : "No hay cargo emitido para este mes"}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="pill neutral">
+                        {formatCurrencyFromCents(monthlySummary.billedCents)}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`pill ${
+                          !monthlySummary.hasCharge
+                            ? "neutral"
+                            : monthlySummary.outstandingCents > 0
+                              ? "warning"
+                              : "success"
+                        }`}
+                      >
+                        {formatCurrencyFromCents(monthlySummary.outstandingCents)}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`pill ${
+                          !monthlySummary.hasCharge
+                            ? "neutral"
+                            : monthlySummary.isConsolidated
+                              ? "success"
+                              : monthlySummary.statusTone === "danger"
+                                ? "danger"
+                                : "warning"
+                        }`}
+                      >
+                        {!monthlySummary.hasCharge
+                          ? "Sin cargo"
+                          : monthlySummary.isConsolidated
+                            ? "Al día"
+                            : monthlySummary.statusTone === "danger"
+                              ? "Revisar hoy"
+                              : monthlySummary.statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
       ) : (
-        <table className="data-table">
+        <>
+          <div className="students-mobile-list">
+            {students.map((student) => {
+              const outstanding = readOutstanding(student);
+              const primaryGuardian = getPrimaryGuardian(student);
+              const categoryLabel = getCategoryLabel(student.notes);
+              const mainContact =
+                primaryGuardian?.guardian.phone ??
+                primaryGuardian?.guardian.email ??
+                "Sin contacto";
+
+              return (
+                <article key={`mobile-${student.id}`} className="students-mobile-card">
+                  <div className="students-mobile-card-top">
+                    <div className="students-mobile-card-copy">
+                      <div className="cell-title">{student.fullName}</div>
+                      <div className="cell-subtitle">
+                        {student.externalCode ?? "Sin código interno"} | cuota{" "}
+                        {student.monthlyFeeCents
+                          ? formatCurrencyFromCents(student.monthlyFeeCents)
+                          : "sin definir"}
+                      </div>
+                    </div>
+                    <span className={`pill ${student.active ? "success" : "neutral"}`}>
+                      {student.active ? "Activo" : "Inactivo"}
+                    </span>
+                  </div>
+
+                  <div className="students-mobile-grid">
+                    <div className="students-mobile-item">
+                      <span className="students-mobile-label">Categoría</span>
+                      <strong>{categoryLabel}</strong>
+                      <span className="table-secondary">Día de cobro {student.billingDay}</span>
+                    </div>
+
+                    <div className="students-mobile-item">
+                      <span className="students-mobile-label">Apoderado</span>
+                      <strong>{primaryGuardian?.guardian.fullName ?? "Sin apoderado"}</strong>
+                      <span className="table-secondary">
+                        {primaryGuardian ? primaryGuardian.relationship : "Sin responsable"}
+                      </span>
+                    </div>
+
+                    <div className="students-mobile-item">
+                      <span className="students-mobile-label">Contacto</span>
+                      <strong>{mainContact}</strong>
+                      <span className="table-secondary">
+                        {getContactChannelLabel(primaryGuardian?.guardian.preferredChannel)}
+                      </span>
+                    </div>
+
+                    <div className="students-mobile-item">
+                      <span className="students-mobile-label">Estado</span>
+                      <span className={`pill ${student.active ? "success" : "neutral"}`}>
+                        {student.active ? "Activo" : "Inactivo"}
+                      </span>
+                      <span className="table-secondary">
+                        {student.active ? "Disponible para cobro" : "Fuera de operación"}
+                      </span>
+                    </div>
+
+                    <div className="students-mobile-item">
+                      <span className="students-mobile-label">Saldo abierto</span>
+                      <strong>{formatCurrencyFromCents(outstanding)}</strong>
+                      <span className="table-secondary">
+                        {outstanding > 0 ? "Requiere seguimiento" : "Cuenta al día"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="students-mobile-footer">
+                    <Link
+                      href={`/app/students/${student.id}`}
+                      className="table-link table-link-primary students-mobile-action"
+                      aria-label={`Ver detalle de ${student.fullName}`}
+                      title={`Ver detalle de ${student.fullName}`}
+                    >
+                      Ver detalle
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <table className="data-table students-master-table">
           <thead>
             <tr>
               <th>Alumno</th>
-              <th>Categoria</th>
-              <th>Apoderado principal</th>
-              <th>Estado del mes</th>
-              <th>Saldo del mes</th>
-              <th>Consolidada</th>
-              <th>Deuda abierta</th>
-              <th>Acciones</th>
+              <th>Categoría</th>
+              <th>Apoderado</th>
+              <th>{isMonthlyMode ? "Estado del mes" : "Contacto"}</th>
+              <th>{isMonthlyMode ? "Facturado" : "Estado"}</th>
+              <th>{isMonthlyMode ? "Pendiente" : "Saldo abierto"}</th>
+              <th>{isMonthlyMode ? "Seguimiento" : "Acción"}</th>
             </tr>
           </thead>
           <tbody>
@@ -227,13 +458,17 @@ export function StudentsCrudPanel(props: {
               const primaryGuardian = getPrimaryGuardian(student);
               const categoryLabel = getCategoryLabel(student.notes);
               const monthlySummary = readMonthlyChargeSummary(student, props.reviewPeriod);
+              const mainContact =
+                primaryGuardian?.guardian.phone ??
+                primaryGuardian?.guardian.email ??
+                "Sin contacto";
 
               return (
                 <tr key={student.id}>
                   <td>
                     <div className="cell-title">{student.fullName}</div>
                     <div className="cell-subtitle">
-                      {student.externalCode ?? "Sin codigo interno"} | cuota{" "}
+                      {student.externalCode ?? "Sin código interno"} | cuota{" "}
                       {student.monthlyFeeCents
                         ? formatCurrencyFromCents(student.monthlyFeeCents)
                         : "sin definir"}
@@ -241,89 +476,109 @@ export function StudentsCrudPanel(props: {
                   </td>
                   <td>
                     <div className="table-primary">{categoryLabel}</div>
-                    <div className="table-secondary">
-                      {student.active ? "Alumno activo" : "Alumno inactivo"} | cobra dia{" "}
-                      {student.billingDay}
-                    </div>
+                    <div className="table-secondary">Día de cobro {student.billingDay}</div>
                   </td>
                   <td>
-                    <div className="cell-title">
-                      {primaryGuardian?.guardian.fullName ?? "Sin apoderado"}
-                    </div>
+                    <div className="cell-title">{primaryGuardian?.guardian.fullName ?? "Sin apoderado"}</div>
                     <div className="cell-subtitle">
-                      {primaryGuardian
-                        ? `${primaryGuardian.relationship} | ${primaryGuardian.guardian.phone ?? primaryGuardian.guardian.email ?? "Sin contacto"}`
-                        : "Debes asignar un responsable"}
+                      {primaryGuardian ? primaryGuardian.relationship : "Sin responsable"}
                     </div>
                   </td>
-                  <td>
-                    <StatusBadge
-                      label={monthlySummary.statusLabel}
-                      tone={monthlySummary.statusTone}
-                    />
-                    <div className="table-secondary">
-                      {monthlySummary.hasCharge
-                        ? `Facturado ${formatCurrencyFromCents(monthlySummary.billedCents)}`
-                        : "No hay cargo emitido para este mes"}
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className={`pill ${
-                        !monthlySummary.hasCharge
-                          ? "neutral"
-                          : monthlySummary.outstandingCents > 0
-                            ? "warning"
-                            : "success"
-                      }`}
-                    >
-                      {formatCurrencyFromCents(monthlySummary.outstandingCents)}
-                    </span>
-                  </td>
-                  <td>
-                    {monthlySummary.isConsolidated ? (
-                      <span className="student-check-badge">
-                        <CheckIcon />
-                        Consolidada
-                      </span>
-                    ) : (
-                      <span className="pill neutral">
-                        {monthlySummary.hasCharge ? "Pendiente" : "Sin cargo"}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`pill ${outstanding > 0 ? "warning" : "success"}`}>
-                      {formatCurrencyFromCents(outstanding)}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="student-row-actions">
-                      <Link
-                        href={`/app/students/${student.id}`}
-                        className="student-icon-button"
-                        aria-label={`Editar a ${student.fullName}`}
-                        title={`Editar a ${student.fullName}`}
-                      >
-                        <EditIcon />
-                      </Link>
-                      <button
-                        type="button"
-                        className="student-icon-button danger"
-                        onClick={() => handleDelete(student)}
-                        disabled={deletingId === student.id}
-                        aria-label={`Eliminar a ${student.fullName}`}
-                        title={`Eliminar a ${student.fullName}`}
-                      >
-                        <DeleteIcon />
-                      </button>
-                    </div>
-                  </td>
+
+                  {isMonthlyMode ? (
+                    <>
+                      <td>
+                        <StatusBadge label={monthlySummary.statusLabel} tone={monthlySummary.statusTone} />
+                        <div className="table-secondary">
+                          {monthlySummary.hasCharge
+                            ? `Facturado ${formatCurrencyFromCents(monthlySummary.billedCents)}`
+                            : "No hay cargo emitido para este mes"}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="pill neutral">
+                          {formatCurrencyFromCents(monthlySummary.billedCents)}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`pill ${
+                            !monthlySummary.hasCharge
+                              ? "neutral"
+                              : monthlySummary.outstandingCents > 0
+                                ? "warning"
+                                : "success"
+                          }`}
+                        >
+                          {formatCurrencyFromCents(monthlySummary.outstandingCents)}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`pill ${
+                            !monthlySummary.hasCharge
+                              ? "neutral"
+                              : monthlySummary.isConsolidated
+                                ? "success"
+                                : monthlySummary.statusTone === "danger"
+                                  ? "danger"
+                                  : "warning"
+                          }`}
+                        >
+                          {!monthlySummary.hasCharge
+                            ? "Sin cargo"
+                            : monthlySummary.isConsolidated
+                              ? "Al día"
+                              : monthlySummary.statusTone === "danger"
+                                ? "Revisar hoy"
+                                : monthlySummary.statusLabel}
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        <div className="cell-title">{mainContact}</div>
+                        <div className="cell-subtitle">
+                          {getContactChannelLabel(primaryGuardian?.guardian.preferredChannel)}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`pill ${student.active ? "success" : "neutral"}`}>
+                          {student.active ? "Activo" : "Inactivo"}
+                        </span>
+                        <div className="table-secondary">
+                          {student.active ? "Disponible para cobro" : "Fuera de operación"}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`pill ${outstanding > 0 ? "warning" : "success"}`}>
+                          {formatCurrencyFromCents(outstanding)}
+                        </span>
+                        <div className="table-secondary">
+                          {outstanding > 0 ? "Requiere seguimiento" : "Cuenta al día"}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="student-row-actions student-row-actions-inline">
+                          <Link
+                            href={`/app/students/${student.id}`}
+                            className="table-link table-link-primary"
+                            aria-label={`Ver detalle de ${student.fullName}`}
+                            title={`Ver detalle de ${student.fullName}`}
+                          >
+                            Ver detalle
+                          </Link>
+                        </div>
+                      </td>
+                    </>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
+        </>
       )}
     </article>
   );

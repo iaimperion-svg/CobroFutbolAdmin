@@ -10,10 +10,15 @@ function getOnboardingEntryUrl() {
 }
 
 function configureOnboardingLinks() {
-    const onboardingUrl = getOnboardingEntryUrl();
+    const onboardingUrl = new URL(getOnboardingEntryUrl());
     document.querySelectorAll('[data-onboarding-link]').forEach(link => {
         if (link instanceof HTMLAnchorElement) {
-            link.href = onboardingUrl;
+            const plan = link.dataset.onboardingPlan?.trim().toUpperCase();
+            const nextUrl = new URL(onboardingUrl.toString());
+            if (plan) {
+                nextUrl.searchParams.set('plan', plan);
+            }
+            link.href = nextUrl.toString();
         }
     });
 }
