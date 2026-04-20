@@ -14,6 +14,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "telegram:webhook:set": "tsx src/scripts/telegram-webhook-set.ts",
+    "telegram:webhook:info": "tsx src/scripts/telegram-webhook-info.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"

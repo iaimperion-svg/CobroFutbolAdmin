@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname, resolve } from "node:path";
 import Tesseract from "tesseract.js";
+import { env } from "@/server/config/env";
 import { prisma } from "@/server/db/prisma";
 
 const supportedOcrMimePrefixes = ["image/"];
@@ -63,7 +64,10 @@ function canRunImageOcr(receipt: { storagePath: string | null; mimeType: string 
 async function readTextFromStoredImage(storagePath: string) {
   try {
     const imageBuffer = await readFile(storagePath);
-    const result = await Tesseract.recognize(imageBuffer, "spa+eng");
+    const result = await Tesseract.recognize(imageBuffer, "spa+eng", {
+      langPath: resolve(env.OCR_LANG_PATH),
+      gzip: false
+    });
     const text = normalizeExtractedText(result.data.text ?? "");
 
     if (text.length < 8) {
