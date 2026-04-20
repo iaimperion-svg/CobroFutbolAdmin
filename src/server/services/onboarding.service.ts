@@ -472,15 +472,27 @@ async function sendActivationEmail(input: {
     dateStyle: "short",
     timeStyle: "short"
   }).format(input.expiresAt);
+  const loginUrl = env.APP_URL;
 
-  const subject = `Activa tu acceso a ${input.academyName}`;
+  const subject = `Activa tu cuenta de ${input.academyName} en CobroFutbol`;
   const text = [
     `Hola ${input.fullName},`,
     "",
-    `Tu academia ${input.academyName} ya fue aprobada.`,
-    `Codigo de referencia: ${input.publicCode}`,
-    `Activa tu acceso aqui: ${input.activationUrl}`,
+    `Tu academia ${input.academyName} ya fue aprobada y tu cuenta administradora esta lista para activarse.`,
+    "",
+    "Resumen de tu alta:",
+    `- Academia: ${input.academyName}`,
+    `- Correo de acceso: ${input.email}`,
+    `- Codigo de referencia: ${input.publicCode}`,
+    "",
+    "Siguiente paso:",
+    `1. Abre este enlace: ${input.activationUrl}`,
+    "2. Define tu contrasena",
+    `3. Entra al panel desde ${loginUrl}`,
+    "",
     `Este enlace vence el ${expiryLabel}.`,
+    "",
+    `Si el boton no abre, copia y pega este enlace en tu navegador: ${input.activationUrl}`,
     "",
     "Si no solicitaste esta alta, ignora este mensaje."
   ].join("\n");
@@ -488,14 +500,26 @@ async function sendActivationEmail(input: {
   const html = `
     <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#1f2937">
       <p>Hola <strong>${input.fullName}</strong>,</p>
-      <p>Tu academia <strong>${input.academyName}</strong> ya fue aprobada.</p>
-      <p><strong>Codigo de referencia:</strong> ${input.publicCode}</p>
+      <p>Tu academia <strong>${input.academyName}</strong> ya fue aprobada y tu cuenta administradora esta lista para activarse.</p>
+      <div style="padding:16px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;margin:20px 0">
+        <p style="margin:0 0 8px 0"><strong>Resumen de tu alta</strong></p>
+        <p style="margin:0"><strong>Academia:</strong> ${input.academyName}</p>
+        <p style="margin:6px 0 0 0"><strong>Correo de acceso:</strong> ${input.email}</p>
+        <p style="margin:6px 0 0 0"><strong>Codigo de referencia:</strong> ${input.publicCode}</p>
+      </div>
       <p>
         <a href="${input.activationUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700">
           Definir contrasena y entrar
         </a>
       </p>
+      <p style="margin:18px 0 8px 0"><strong>Siguiente paso</strong></p>
+      <ol style="margin:0 0 18px 20px;padding:0">
+        <li>Abre el boton de activacion.</li>
+        <li>Define tu contrasena.</li>
+        <li>Ingresa al panel desde <a href="${loginUrl}">${loginUrl}</a>.</li>
+      </ol>
       <p>Este enlace vence el <strong>${expiryLabel}</strong>.</p>
+      <p style="word-break:break-all"><strong>Enlace directo:</strong> <a href="${input.activationUrl}">${input.activationUrl}</a></p>
       <p>Si no solicitaste esta alta, ignora este mensaje.</p>
     </div>
   `;

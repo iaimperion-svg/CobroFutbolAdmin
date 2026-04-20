@@ -508,6 +508,14 @@ describe("onboarding service", () => {
         expect.stringContaining("ya fue aprobada"),
         "telegram-token"
       );
+      expect(mocks.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "mauro.moreno.o@gmail.com",
+          subject: "Activa tu cuenta de Academia Imperion FC. en CobroFutbol",
+          text: expect.stringContaining("Correo de acceso: mauro.moreno.o@gmail.com"),
+          html: expect.stringContaining("Resumen de tu alta")
+        })
+      );
     } finally {
       dateNowSpy.mockRestore();
     }
