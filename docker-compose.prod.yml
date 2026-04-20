@@ -21,6 +21,12 @@ services:
   app:
     build:
       context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        APP_URL: ${APP_URL}
+        JWT_SECRET: ${JWT_SECRET}
+        WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
     restart: unless-stopped
     env_file:
       - .env.production
@@ -36,6 +42,12 @@ services:
   worker:
     build:
       context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        APP_URL: ${APP_URL}
+        JWT_SECRET: ${JWT_SECRET}
+        WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
     restart: unless-stopped
     env_file:
       - .env.production
