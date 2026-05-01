@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cobrofutbol
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  app:
+    build:
+      context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        APP_URL: ${APP_URL}
+        JWT_SECRET: ${JWT_SECRET}
+        WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      APP_RUNTIME: web
+      PORT: 3000
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage_data:/app/storage
+
+  worker:
+    build:
+      context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        REDIS_URL: ${REDIS_URL}
+        APP_URL: ${APP_URL}
+        JWT_SECRET: ${JWT_SECRET}
+        WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      APP_RUNTIME: worker
+      PORT: 3001
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage_data:/app/storage
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      APP_HOST: ${APP_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  redis_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
