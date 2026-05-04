@@ -19,6 +19,8 @@ docs/codex-secrets.local.md
 backups/
 backup/
 /ops/tmp/
+*.bak
+*.bak-*
 *.dump
 *.sql
 *.sql.gz

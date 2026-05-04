@@ -9,6 +9,8 @@ storage
 .env.staging
 *.log
 *.tsbuildinfo
+*.bak
+*.bak-*
 .git
 .gitignore
 docker-compose.yml
