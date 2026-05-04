@@ -6,10 +6,10 @@ import { hasOnboardingReviewAccess } from "@/server/auth/onboarding-review";
 export const dynamic = "force-dynamic";
 
 const projectSnapshot = {
-  updatedAtLabel: "30 de abril de 2026",
-  overallProgress: 96,
+  updatedAtLabel: "4 de mayo de 2026",
+  overallProgress: 97,
   summary:
-    "Representante, Kapitan, panel de escuela y backoffice maestro ya tienen base operativa real. Kapitan valido en produccion el flujo conversacional para pagos familiares variables y el proyecto ya cuenta con skills operativas para produccion, validacion, datos, UI, testing y rutina diaria.",
+    "Representante, Kapitan, panel de escuela y backoffice maestro ya tienen base operativa real. El onboarding interno quedo integrado al menu lateral del maestro, el VPS nuevo y Git quedaron sincronizados, y el unico bloqueo operativo actual para acceso publico es la sincronizacion DNS de app.cobrofutbol.cl en ns4.",
   tracks: [
     {
       title: "Ingreso / Representante",
@@ -37,11 +37,11 @@ const projectSnapshot = {
     },
     {
       title: "Backoffice maestro CobroFutbol",
-      progress: 94,
+      progress: 96,
       status: "Centro operativo",
       tone: "success" as const,
       detail:
-        "Ya concentra resumen, clientes, ingresos, onboarding, proyecto, mantenedores, mensualidad CobroFutbol, cuenta Mercado Pago, login admin, cierre de sesion y runbooks operativos mediante skills."
+        "Ya concentra resumen, clientes, ingresos, onboarding con menu lateral, proyecto, mantenedores, mensualidad CobroFutbol, cuenta Mercado Pago, login admin, cierre de sesion y runbooks operativos mediante skills."
     }
   ],
   completed: [
@@ -63,14 +63,17 @@ const projectSnapshot = {
     "Pago familiar variable validado en produccion: comprobante por 90.000 aplicado a 3 mensualidades de Academia 3 palitos mediante confirmacion de pagador.",
     "Plan docs/validar.md ejecutado en VPS con evidencia de contenedores, despliegue, tests automatizados y base de datos.",
     "Acciones de revision bloqueadas para comprobantes ya conciliados o aprobados, evitando reprocesar pagos cerrados desde la UI.",
-    "Set base de 10 Agent Skills instalado localmente y en el VPS para produccion, validar, Kapitan, onboarding, maestro finanzas, webhooks, datos Prisma, operacion diaria, testing y UI."
+    "Set base de 10 Agent Skills instalado localmente y en el VPS para produccion, validar, Kapitan, onboarding, maestro finanzas, webhooks, datos Prisma, operacion diaria, testing y UI.",
+    "Backoffice onboarding integrado al menu lateral del maestro, desplegado en el VPS nuevo y sincronizado con Git en el commit b4946fb."
   ],
   inProgress: [
+    "Corregir la zona DNS autoritativa de app.cobrofutbol.cl: ns1, ns2 y ns3 responden 45.236.90.21, pero ns4 debe dejar de responder la IP antigua.",
     "Operar el primer ciclo real completo: crear cobro, recibir pago CobroFutbol, registrar pago y verificar cambio de estado.",
     "Pruebas reales adicionales de Kapitan con pago parcial, excedente, comprobante ambiguo y grupos familiares de distinto tamano.",
     "Agregar test automatizado especifico para receipt-resolution.service y resolucion de prompts SELECT_PAYER."
   ],
   nextSteps: [
+    "Solicitar a ZGlobalHost sincronizar ns4 para app.cobrofutbol.cl y validar que los cuatro nameservers respondan 45.236.90.21.",
     "Crear y registrar la primera mensualidad CobroFutbol real de una escuela desde el maestro.",
     "Agregar test automatizado para receipt-resolution.service y repetir validar.",
     "Ejecutar pruebas reales de pago parcial, excedente y comprobante ambiguo usando el plan docs/validar.md.",
@@ -153,8 +156,9 @@ export default async function BackofficeProjectStatusPage() {
                   <span>Actualizado: {projectSnapshot.updatedAtLabel}</span>
                 </div>
                 <p className="muted project-status-progress-note">
-                  El ingreso ya esta practicamente cerrado. El mayor salto de hoy fue dejar operacion real por escuela,
-                  cuenta destino, pagos familiares, validacion con evidencia y skills operativas funcionando como memoria de proyecto.
+                  El ingreso ya esta practicamente cerrado. El avance mas reciente fue ordenar el backoffice interno,
+                  integrar onboarding al menu maestro y dejar produccion/Git alineados. Falta corregir DNS en ns4 para
+                  que el dominio publico no caiga a la IP antigua.
                 </p>
               </div>
 

@@ -110,10 +110,20 @@
 
 ## Punto de partida para manana
 
+- Resolver el bloqueo DNS publico de `app.cobrofutbol.cl`: `ns1`, `ns2` y `ns3` responden `45.236.90.21`, pero `ns4.zglobalhost.com` debe sincronizarse porque aun puede responder la IP historica.
 - Crear y registrar la primera mensualidad CobroFutbol real de una escuela desde el maestro.
 - Agregar test automatizado especifico para `receipt-resolution.service` y resolucion de prompts `SELECT_PAYER`.
 - Ejecutar pruebas reales de pago parcial, excedente y comprobante ambiguo usando `docs/validar.md`.
 - Usar `cobrofutbol-operacion-diaria` para revisar alertas, ingresos, pagos CF y clientes pendientes.
+
+## Cierre del dia 4 de mayo de 2026
+
+- Se integro `/backoffice/onboarding` al shell del backoffice maestro con `MasterSidebar`, dejando menu lateral, navegacion interna y salida unificadas.
+- Se ajusto el contraste visual del onboarding interno para que los textos, tarjetas, inputs y tablas sean legibles sobre el layout claro del maestro.
+- Se desplego el cambio en el VPS nuevo `45.236.90.21`, ruta productiva `/opt/CobroFutbol`, reconstruyendo la imagen `app`.
+- Git local, GitHub y VPS quedaron sincronizados en branch `prod`, commit `b4946fb Add backoffice onboarding sidebar`.
+- La app responde internamente en Docker y el contenedor `cobrofutbol-app-1` quedo arriba; el problema de carga publica se identifico como DNS desincronizado en `ns4.zglobalhost.com`, no como app caida.
+- La hoja de avance del proyecto se actualizo a `97%` general en `src/app/backoffice/maestro/proyecto/page.tsx`.
 
 ## Pendientes backoffice maestro para manana
 

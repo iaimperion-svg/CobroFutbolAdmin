@@ -1,6 +1,6 @@
 # Continuar CobroFutbol
 
-Ultima actualizacion: 30 de abril de 2026.
+Ultima actualizacion: 4 de mayo de 2026.
 
 ## Regla operativa
 
@@ -12,7 +12,10 @@ Ultima actualizacion: 30 de abril de 2026.
 
 ## Estado actual
 
-- Proyecto actualizado a `96%` en `/backoffice/onboarding/proyecto`.
+- Proyecto actualizado a `97%` en `/backoffice/onboarding/proyecto` y `/backoffice/maestro/proyecto`.
+- Backoffice onboarding integrado al menu lateral del maestro y desplegado en el VPS nuevo.
+- Git local, GitHub y VPS sincronizados en branch `prod`, commit `b4946fb Add backoffice onboarding sidebar`.
+- App productiva arriba internamente; bloqueo publico actual: DNS desincronizado, porque `ns4.zglobalhost.com` debe responder `45.236.90.21` para `app.cobrofutbol.cl`.
 - `docs/validar.md` existe y debe ejecutarse cuando el usuario diga `validar`.
 - Set base de 10 Agent Skills instalado localmente en `.agents/skills` y en el VPS en `/opt/CobroFutbol/.agents/skills`.
 - Las skills son contexto/runbooks para agentes compatibles; no modifican runtime, app, DB ni contenedores.
@@ -38,13 +41,19 @@ Ultima actualizacion: 30 de abril de 2026.
 
 ## Lo que sigue recomendado
 
-1. Agregar test automatizado para `receipt-resolution.service`.
+1. Corregir DNS publico de `app.cobrofutbol.cl`.
+   - Solicitar a ZGlobalHost sincronizar `ns4.zglobalhost.com`.
+   - El registro A correcto es `app.cobrofutbol.cl -> 45.236.90.21`.
+   - No tocar registros de mail, cPanel, DKIM, SPF ni el A raiz `cobrofutbol.cl`.
+   - Validar que `ns1`, `ns2`, `ns3` y `ns4` respondan todos `45.236.90.21`.
+
+2. Agregar test automatizado para `receipt-resolution.service`.
    - Cubrir respuesta de prompt `SELECT_PAYER`.
    - Verificar que una opcion de pagador valida cree pago/reconciliacion/asignaciones.
    - Verificar que la opcion de rechazo o no identificacion mande a revision manual.
    - Repetir `validar` despues.
 
-2. Ejecutar pruebas reales de casos raros de Kapitan.
+3. Ejecutar pruebas reales de casos raros de Kapitan.
    - Pago parcial.
    - Pago con excedente.
    - Comprobante ambiguo.
@@ -52,17 +61,17 @@ Ultima actualizacion: 30 de abril de 2026.
    - Varios alumnos y varios meses.
    - Confirmar que cada caso aparece bien en chat, DB y UI.
 
-3. Implementar/validar mensualidad real CobroFutbol desde el maestro.
+4. Implementar/validar mensualidad real CobroFutbol desde el maestro.
    - Registrar invoice mensual por escuela.
    - Registrar pago real recibido por CobroFutbol.
    - Separar caja CobroFutbol de la plata que la escuela cobra a apoderados.
    - Verificar estados: pendiente, vencido, pagado.
 
-4. Usar la pauta operativa diaria ya creada.
+5. Usar la pauta operativa diaria ya creada.
    - Skill: `cobrofutbol-operacion-diaria`.
    - Revisar salud tecnica, maestro, Kapitan, onboarding y caja CobroFutbol.
    - Reportar siempre con evidencia, pendientes y bloqueos.
 
 ## Comando mental para el proximo hilo
 
-Si el usuario dice "sigamos", partir por el punto 1: test automatizado de `receipt-resolution.service`, salvo que indique otra prioridad. Usar las skills del proyecto como contexto operativo antes de actuar.
+Si el usuario dice "sigamos", partir por el punto 1: resolver/validar DNS publico de `app.cobrofutbol.cl`, salvo que indique otra prioridad. Usar las skills del proyecto como contexto operativo antes de actuar.
