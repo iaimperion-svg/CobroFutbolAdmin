@@ -1,5 +1,5 @@
 import { OnboardingPlan, OnboardingReceiptStatus, OnboardingRequestStatus } from "@prisma/client";
-import Link from "next/link";
+import { MasterSidebar } from "@/app/backoffice/maestro/MasterSidebar";
 import { ManualDeliveryModal } from "@/components/onboarding/manual-delivery-modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireOnboardingReviewSecret } from "@/server/auth/onboarding-review";
@@ -7,7 +7,6 @@ import { listOnboardingRequestsForReview } from "@/server/services/onboarding.se
 import { formatCurrencyFromCents } from "@/server/utils/money";
 import {
   approveOnboardingReviewAction,
-  logoutOnboardingReviewAction,
   rejectOnboardingReviewAction,
   resendOnboardingActivationAction,
   resendOnboardingAccessAction
@@ -186,7 +185,7 @@ export default async function OnboardingBackofficePage(props: {
     : "/backoffice/onboarding";
 
   return (
-    <main className="page-shell onboarding-review-shell">
+    <main className="cf-master onboarding-review-shell cf-onboarding-backoffice">
       {activationUrl && activationPublicCode ? (
         <ManualDeliveryModal
           activationUrl={activationUrl}
@@ -196,7 +195,9 @@ export default async function OnboardingBackofficePage(props: {
         />
       ) : null}
 
-      <section className="stack onboarding-review-frame">
+      <MasterSidebar active="onboarding" subtitle="Backoffice" />
+
+      <section className="cf-master-main stack onboarding-review-frame">
         <section className="shell-header stack">
           <div className="onboarding-review-topbar">
             <div className="stack onboarding-review-heading" style={{ gap: 6 }}>
@@ -227,22 +228,6 @@ export default async function OnboardingBackofficePage(props: {
                 ) : null}
               </div>
             </form>
-
-            <div className="onboarding-review-inline-actions">
-              <a href="/backoffice/maestro" className="backoffice-action-link">
-                Ver maestro
-              </a>
-
-              <Link href="/backoffice/maestro/proyecto" className="backoffice-action-link">
-                Ver avance
-              </Link>
-
-              <form action={logoutOnboardingReviewAction} className="onboarding-review-inline-exit">
-                <button className="backoffice-action-link backoffice-action-button" type="submit">
-                  Salir
-                </button>
-              </form>
-            </div>
           </div>
 
           {notice ? <p className="form-feedback success">{notice}</p> : null}

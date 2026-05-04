@@ -11503,3 +11503,127 @@ a.master-detail-lane:focus-visible {
     max-width: none;
   }
 }
+
+/* Backoffice onboarding: keep the review queue readable on the light ops surface. */
+.onboarding-review-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f6f8fa 0%, #eef2f5 100%);
+  color: #24302b;
+}
+
+.onboarding-review-shell .onboarding-review-frame {
+  width: min(1500px, calc(100vw - 48px));
+}
+
+.onboarding-review-shell .shell-header,
+.onboarding-review-shell .app-card {
+  border: 1px solid rgba(38, 47, 60, 0.13);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 20px 42px rgba(25, 34, 29, 0.08);
+}
+
+.onboarding-review-shell .shell-header::before,
+.onboarding-review-shell .app-card::before,
+.onboarding-review-shell .shell-header::after {
+  display: none;
+}
+
+.onboarding-review-shell .eyebrow {
+  color: #008c32;
+}
+
+.onboarding-review-shell .shell-title,
+.onboarding-review-shell .card-title,
+.onboarding-review-shell .table-primary,
+.onboarding-review-shell .table-link {
+  color: #172130;
+}
+
+.onboarding-review-shell .muted,
+.onboarding-review-shell .table-secondary,
+.onboarding-review-shell .backoffice-material-label,
+.onboarding-review-shell .onboarding-review-search-label,
+.onboarding-review-shell .backoffice-action-link,
+.onboarding-review-shell .backoffice-action-button,
+.onboarding-review-shell .onboarding-table-muted-action {
+  color: #52615a;
+}
+
+.onboarding-review-shell .backoffice-material-input {
+  border-bottom-color: rgba(38, 47, 60, 0.22);
+  color: #172130;
+}
+
+.onboarding-review-shell .backoffice-material-input::placeholder {
+  color: #7b8680;
+}
+
+.onboarding-review-shell .backoffice-action-button-primary,
+.onboarding-review-shell .backoffice-action-link:hover,
+.onboarding-review-shell .backoffice-action-link:focus-visible,
+.onboarding-review-shell .backoffice-action-button:hover,
+.onboarding-review-shell .backoffice-action-button:focus-visible,
+.onboarding-review-shell .table-link:hover,
+.onboarding-review-shell .table-link:focus-visible {
+  color: #008c32;
+}
+
+.onboarding-review-shell .onboarding-review-empty {
+  min-height: 164px;
+  align-content: center;
+}
+
+.onboarding-review-shell .onboarding-review-table-card {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.onboarding-review-shell .onboarding-review-table thead th {
+  border-bottom-color: rgba(38, 47, 60, 0.12);
+  background: #f4f7f4;
+  color: #52615a;
+}
+
+.onboarding-review-shell .onboarding-review-table tbody td,
+.onboarding-review-shell .onboarding-review-table tbody tr + tr td {
+  border-color: rgba(38, 47, 60, 0.1);
+}
+
+.onboarding-review-shell .onboarding-review-table tbody tr:hover {
+  background: rgba(15, 166, 40, 0.045);
+}
+
+.onboarding-review-shell .onboarding-review-inline-actions {
+  align-items: center;
+  gap: 18px;
+}
+
+.cf-onboarding-backoffice .onboarding-review-topbar {
+  grid-template-columns: minmax(220px, 320px) minmax(360px, 1fr);
+}
+
+.cf-onboarding-backoffice .onboarding-review-frame {
+  width: 100% !important;
+  max-width: none;
+}
+
+@media (max-width: 980px) {
+  .onboarding-review-shell .onboarding-review-frame {
+    width: 100%;
+  }
+
+  .onboarding-review-shell .onboarding-review-inline-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .onboarding-review-shell .onboarding-review-search-row {
+    gap: 10px;
+  }
+
+  .onboarding-review-shell .backoffice-action-button,
+  .onboarding-review-shell .backoffice-action-link {
+    min-height: 34px;
+  }
+}
