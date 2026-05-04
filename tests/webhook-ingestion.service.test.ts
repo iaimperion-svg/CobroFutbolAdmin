@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
   createInboundMessageWithReceipts: vi.fn(),
   queueSystemReply: vi.fn(),
   shouldHandleOnboardingTelegramUpdate: vi.fn(),
-  handleOnboardingTelegramUpdate: vi.fn()
+  handleOnboardingTelegramUpdate: vi.fn(),
+  resolveSchoolFromInboundAttachments: vi.fn()
 }));
 
 vi.mock("@/server/config/env", () => ({
@@ -36,6 +37,10 @@ vi.mock("@/server/services/onboarding.service", () => ({
   handleOnboardingTelegramUpdate: mocks.handleOnboardingTelegramUpdate
 }));
 
+vi.mock("@/server/services/school-resolution.service", () => ({
+  resolveSchoolFromInboundAttachments: mocks.resolveSchoolFromInboundAttachments
+}));
+
 import { ingestTelegramWebhook } from "@/server/services/webhook-ingestion.service";
 
 describe("ingestTelegramWebhook", () => {
@@ -45,6 +50,7 @@ describe("ingestTelegramWebhook", () => {
     mocks.queueSystemReply.mockReset();
     mocks.shouldHandleOnboardingTelegramUpdate.mockReset();
     mocks.handleOnboardingTelegramUpdate.mockReset();
+    mocks.resolveSchoolFromInboundAttachments.mockReset();
 
     mocks.findSchool.mockResolvedValue({
       id: "school-1"

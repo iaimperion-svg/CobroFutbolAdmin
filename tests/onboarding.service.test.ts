@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   onboardingRequestFindUnique: vi.fn(),
   onboardingRequestCreate: vi.fn(),
   onboardingRequestUpdate: vi.fn(),
+  onboardingPaymentReceiptFindFirst: vi.fn(),
   onboardingPaymentReceiptFindUnique: vi.fn(),
   onboardingPaymentReceiptCreate: vi.fn(),
   onboardingPaymentReceiptUpdate: vi.fn(),
@@ -50,6 +51,7 @@ vi.mock("@/server/db/prisma", () => ({
       update: mocks.onboardingRequestUpdate
     },
     onboardingPaymentReceipt: {
+      findFirst: mocks.onboardingPaymentReceiptFindFirst,
       findUnique: mocks.onboardingPaymentReceiptFindUnique,
       create: mocks.onboardingPaymentReceiptCreate,
       update: mocks.onboardingPaymentReceiptUpdate
@@ -77,6 +79,8 @@ import {
   approveOnboardingRequest,
   createOnboardingRequest,
   handleOnboardingTelegramUpdate,
+  resendOnboardingRequestAccess,
+  resendOnboardingActivation,
   shouldHandleOnboardingTelegramUpdate
 } from "@/server/services/onboarding.service";
 
@@ -88,13 +92,14 @@ describe("onboarding service", () => {
     mocks.userFindUnique.mockResolvedValue(null);
     mocks.onboardingRequestFindFirst.mockResolvedValue(null);
     mocks.onboardingRequestFindUnique.mockResolvedValue(null);
+    mocks.onboardingPaymentReceiptFindFirst.mockResolvedValue(null);
     mocks.onboardingPaymentReceiptCreate.mockResolvedValue({
       id: "onb-receipt-1"
     });
     mocks.onboardingPaymentReceiptUpdate.mockResolvedValue({});
     mocks.persistReceiptMedia.mockResolvedValue("storage/onboarding/onb-receipt-1.png");
     mocks.extractOnboardingReceiptText.mockResolvedValue({
-      text: "Comprobante de Transferencia Scotiabank Monto transferido $39.900 Referencia Pre-calentamiento CobroFutbol - Solicitud PG-UAJENA",
+      text: "Comprobante de Transferencia Scotiabank Monto transferido $39.990 Referencia Pre-calentamiento CobroFutbol - Solicitud PG-UAJENA",
       confidence: 0.91
     });
     mocks.onboardingRequestCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -131,7 +136,7 @@ describe("onboarding service", () => {
       email: "mauro@academia.cl",
       phone: "+56912345678",
       city: "Santiago",
-      notes: "Alta nueva",
+      notes: "Ingreso nuevo",
       plan: "SEMILLERO"
     });
 
@@ -151,6 +156,21 @@ describe("onboarding service", () => {
         html: expect.stringContaining(result.instructions.referenceCode)
       })
     );
+    expect(mocks.onboardingRequestUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "onb-new" },
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            accessDelivery: expect.objectContaining({
+              delivered: true,
+              mode: "email",
+              source: "created",
+              recipientEmail: "mauro@academia.cl"
+            })
+          })
+        })
+      })
+    );
   });
 
   it("no bloquea la solicitud si falla el envio del correo", async () => {
@@ -164,7 +184,7 @@ describe("onboarding service", () => {
         email: "mauro@academia.cl",
         phone: "+56912345678",
         city: "Santiago",
-        notes: "Alta nueva",
+        notes: "Ingreso nuevo",
         plan: "SEMILLERO"
       });
 
@@ -173,9 +193,68 @@ describe("onboarding service", () => {
         delivered: false,
         mode: "manual"
       });
+      expect(mocks.onboardingRequestUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "onb-new" },
+          data: expect.objectContaining({
+            metadata: expect.objectContaining({
+              accessDelivery: expect.objectContaining({
+                delivered: false,
+                mode: "manual",
+                source: "created"
+              })
+            })
+          })
+        })
+      );
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it("permite reenviar el correo de acceso al bot para solicitudes aun abiertas", async () => {
+    mocks.onboardingRequestFindUnique.mockResolvedValue({
+      id: "onb-resend-access-1",
+      publicCode: "PG-REMAIL",
+      academyName: "Maurop FC",
+      fullName: "Mauro Moreno",
+      email: "ia.imperion@gmail.com",
+      expectedAmountCents: 3999000,
+      telegramStartToken: "token123",
+      status: "PENDING_PAYMENT",
+      metadata: null
+    });
+
+    const result = await resendOnboardingRequestAccess({
+      requestId: "onb-resend-access-1",
+      reviewSecret: "review-secret"
+    });
+
+    expect(result.delivery).toEqual({
+      delivered: true,
+      mode: "email"
+    });
+    expect(mocks.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ia.imperion@gmail.com",
+        subject: "Acceso al bot de onboarding de Maurop FC"
+      })
+    );
+    expect(mocks.onboardingRequestUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "onb-resend-access-1" },
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({
+            accessDelivery: expect.objectContaining({
+              delivered: true,
+              mode: "email",
+              source: "resent",
+              recipientEmail: "ia.imperion@gmail.com"
+            })
+          })
+        })
+      })
+    );
   });
 
   it("reconoce el codigo publico como senal valida de onboarding", async () => {
@@ -275,7 +354,7 @@ describe("onboarding service", () => {
       id: "onb-2",
       publicCode: "PG-BNBQAA",
       email: "mauro.moreno.o@gmail.com",
-      expectedAmountCents: 3990000,
+      expectedAmountCents: 3999000,
       status: "TELEGRAM_LINKED"
     });
 
@@ -320,9 +399,24 @@ describe("onboarding service", () => {
       where: { id: "onb-receipt-1" },
       data: {
         extractedText:
-          "Comprobante de Transferencia Scotiabank Monto transferido $39.900 Referencia Pre-calentamiento CobroFutbol - Solicitud PG-UAJENA",
-        extractedAmountCents: 3990000,
-        extractionConfidence: 0.91
+          "Comprobante de Transferencia Scotiabank Monto transferido $39.990 Referencia Pre-calentamiento CobroFutbol - Solicitud PG-UAJENA",
+        extractedAmountCents: 3999000,
+        extractionConfidence: 0.91,
+        metadata: {
+          mediaFailure: null,
+          extractionFailure: null,
+          assessment: {
+            outcome: "amount_match",
+            expectedAmountCents: 3999000,
+            detectedAmountCents: 3999000,
+            amountMatchesExpected: true,
+            amountDifferenceCents: 0,
+            expectedReference: "PG-BNBQAA",
+            detectedReference: "PG-UAJENA",
+            referenceMatchesExpected: false,
+            confidence: 0.99
+          }
+        }
       }
     });
     expect(mocks.sendTelegramTextMessageWithToken).toHaveBeenNthCalledWith(
@@ -345,7 +439,7 @@ describe("onboarding service", () => {
       id: "onb-3",
       publicCode: "PG-GEEARG",
       email: "director@academia.cl",
-      expectedAmountCents: 3990000,
+      expectedAmountCents: 3999000,
       status: "TELEGRAM_LINKED"
     });
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -381,7 +475,18 @@ describe("onboarding service", () => {
           extractionConfidence: 0.2,
           metadata: {
             mediaFailure: null,
-            extractionFailure: "ocr unavailable"
+            extractionFailure: "ocr unavailable",
+            assessment: {
+              outcome: "partial_match",
+              expectedAmountCents: 3999000,
+              detectedAmountCents: null,
+              amountMatchesExpected: false,
+              amountDifferenceCents: null,
+              expectedReference: "PG-GEEARG",
+              detectedReference: null,
+              referenceMatchesExpected: false,
+              confidence: 0.2
+            }
           }
         }
       });
@@ -411,6 +516,57 @@ describe("onboarding service", () => {
     }
   });
 
+  it("ignora reintentos del mismo update de Telegram cuando el comprobante ya fue procesado", async () => {
+    mocks.onboardingRequestFindFirst.mockResolvedValue({
+      id: "onb-dup-1",
+      publicCode: "PG-DUP123",
+      email: "director@academia.cl",
+      expectedAmountCents: 3999000,
+      status: "RECEIPT_RECEIVED"
+    });
+    mocks.onboardingPaymentReceiptFindFirst.mockResolvedValue({
+      id: "onb-receipt-dup-1",
+      onboardingRequestId: "onb-dup-1",
+      storagePath: "storage/onboarding/onb-receipt-dup-1.jpg",
+      extractedText: "Monto transferido $39.990",
+      extractedAmountCents: 3999000,
+      extractionConfidence: 0.91,
+      metadata: {
+        assessment: {
+          outcome: "amount_match"
+        }
+      }
+    });
+
+    const result = await handleOnboardingTelegramUpdate({
+      externalId: "6001:21",
+      externalChatId: "8603000397",
+      externalUserId: "5001",
+      senderHandle: "8603000397",
+      senderName: "Mauro",
+      senderUsername: "mauro",
+      bodyText: "",
+      attachments: [
+        {
+          fileUrl: "telegram://photo-dup",
+          originalFileName: "telegram-photo-21.jpg",
+          mimeType: "image/jpeg"
+        }
+      ],
+      rawPayload: {}
+    });
+
+    expect(result).toEqual({
+      receiptId: "onb-receipt-dup-1",
+      publicCode: "PG-DUP123",
+      duplicate: true
+    });
+    expect(mocks.onboardingPaymentReceiptCreate).not.toHaveBeenCalled();
+    expect(mocks.persistReceiptMedia).not.toHaveBeenCalled();
+    expect(mocks.extractOnboardingReceiptText).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramTextMessageWithToken).not.toHaveBeenCalled();
+  });
+
   it("envia tambien el link de activacion por Telegram al aprobar si existe chat vinculado", async () => {
     const expiresAt = new Date("2026-04-19T18:30:00.000Z");
 
@@ -422,7 +578,7 @@ describe("onboarding service", () => {
       fullName: "Mauro Moreno",
       email: "mauro.moreno.o@gmail.com",
       phone: "+56930830263",
-      expectedAmountCents: 3990000,
+      expectedAmountCents: 3999000,
       createdUserId: null,
       schoolId: null,
       telegramChatId: "8603000397",
@@ -513,8 +669,93 @@ describe("onboarding service", () => {
           to: "mauro.moreno.o@gmail.com",
           subject: "Activa tu cuenta de Academia Imperion FC. en CobroFutbol",
           text: expect.stringContaining("Correo de acceso: mauro.moreno.o@gmail.com"),
-          html: expect.stringContaining("Resumen de tu alta")
+          html: expect.stringContaining("Resumen de tu ingreso")
         })
+      );
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it("reenvia un nuevo enlace de activacion para solicitudes aprobadas pendientes", async () => {
+    const expiresAt = new Date("2026-04-19T20:00:00.000Z");
+
+    mocks.onboardingRequestFindUnique.mockResolvedValue({
+      id: "onb-resend-1",
+      publicCode: "PG-RES123",
+      academyName: "Kapitan FC",
+      fullName: "Andrea Perez",
+      email: "andrea@kapitan.cl",
+      createdUserId: "user-resend-1",
+      telegramChatId: "8603000397",
+      status: "APPROVED_PENDING_ACTIVATION"
+    });
+
+    const updateManyMock = vi.fn().mockResolvedValue({});
+    const createMock = vi.fn().mockResolvedValue({});
+    const updateRequestMock = vi.fn().mockResolvedValue({});
+
+    mocks.prismaTransaction.mockImplementation(async (callback: (tx: any) => Promise<unknown>) =>
+      callback({
+        onboardingActivationToken: {
+          updateMany: updateManyMock,
+          create: createMock
+        },
+        onboardingRequest: {
+          update: updateRequestMock
+        }
+      })
+    );
+
+    const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(expiresAt.getTime() - 60 * 60 * 1000);
+
+    try {
+      const result = await resendOnboardingActivation({
+        requestId: "onb-resend-1",
+        reviewSecret: "review-secret"
+      });
+
+      expect(updateManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            onboardingRequestId: "onb-resend-1",
+            usedAt: null
+          }
+        })
+      );
+      expect(createMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            onboardingRequestId: "onb-resend-1",
+            userId: "user-resend-1",
+            expiresAt
+          })
+        })
+      );
+      expect(updateRequestMock).toHaveBeenCalledWith({
+        where: { id: "onb-resend-1" },
+        data: {
+          expiresAt
+        }
+      });
+      expect(result.delivery).toEqual({
+        delivered: true,
+        mode: "email"
+      });
+      expect(result.telegramDelivery).toEqual({
+        delivered: true,
+        mode: "telegram"
+      });
+      expect(mocks.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "andrea@kapitan.cl",
+          subject: "Activa tu cuenta de Kapitan FC en CobroFutbol"
+        })
+      );
+      expect(mocks.sendTelegramTextMessageWithToken).toHaveBeenCalledWith(
+        "8603000397",
+        expect.stringContaining(result.activationUrl),
+        "telegram-token"
       );
     } finally {
       dateNowSpy.mockRestore();

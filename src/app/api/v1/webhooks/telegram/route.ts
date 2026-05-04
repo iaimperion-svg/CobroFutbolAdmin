@@ -14,16 +14,12 @@ export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
     const schoolSlug = searchParams.get("schoolSlug");
 
-    if (!schoolSlug) {
-      throw new Error("schoolSlug es requerido");
-    }
-
     if (env.TELEGRAM_WEBHOOK_SECRET && secret !== env.TELEGRAM_WEBHOOK_SECRET) {
       return new Response("Forbidden", { status: 403 });
     }
 
     const body = (await request.json()) as Record<string, unknown>;
-    await ingestTelegramWebhook(body, schoolSlug);
+    await ingestTelegramWebhook(body, schoolSlug ?? undefined);
     return new Response(JSON.stringify({ ok: true, accepted: true }), {
       status: 202,
       headers: {

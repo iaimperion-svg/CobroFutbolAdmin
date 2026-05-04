@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Testing"
+  short_description: "Mapa de pruebas por modulo"
+  default_prompt: "Use $cobrofutbol-testing to choose and run the right CobroFutbol verification commands."
+
+policy:
+  allow_implicit_invocation: true

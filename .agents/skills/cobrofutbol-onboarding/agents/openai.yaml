@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Onboarding"
+  short_description: "Alta, pago y activacion"
+  default_prompt: "Use $cobrofutbol-onboarding to work on CobroFutbol school onboarding."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Kapitan Conciliacion"
+  short_description: "OCR, matching y pagos Kapitan"
+  default_prompt: "Use $kapitan-conciliacion to work on CobroFutbol receipt reconciliation."
+
+policy:
+  allow_implicit_invocation: true

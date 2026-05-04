@@ -80,9 +80,17 @@ describe("messaging.service", () => {
         })
       })
     );
-    expect(mocks.queueAdd).toHaveBeenCalledWith("deliver-message", {
-      messageId: "message-1"
-    });
+    expect(mocks.queueAdd).toHaveBeenCalledWith(
+      "deliver-message",
+      {
+        messageId: "message-1"
+      },
+      expect.objectContaining({
+        attempts: 3,
+        removeOnComplete: 100,
+        removeOnFail: false
+      })
+    );
   });
 
   it("envia respuestas de Telegram y marca el mensaje como enviado", async () => {

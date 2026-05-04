@@ -14,6 +14,7 @@ type OnboardingInstructions = {
   referenceCode: string;
   academyName: string;
   telegramLink: string | null;
+  telegramWebLink: string | null;
   paymentDestination: {
     bankName: string;
     accountType: string;
@@ -120,7 +121,7 @@ export function OnboardingRequestForm(props: {
 
       const payload = (await response.json()) as ApiResponse<CreatedOnboardingPayload>;
       if (!response.ok || !payload.data) {
-        throw new Error(payload.error ?? "No pudimos crear la solicitud de alta.");
+        throw new Error(payload.error ?? "No pudimos crear la solicitud de ingreso.");
       }
 
       setCreated(payload.data);
@@ -137,9 +138,13 @@ export function OnboardingRequestForm(props: {
     }
   }
 
-  function openTelegramLink(url: string) {
+  function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent);
+  }
+
+  function openTelegramLink(url: string, webUrl: string | null) {
     setActionFeedback(null);
-    window.location.assign(url);
+    window.location.assign(isMobileDevice() ? url : webUrl ?? url);
   }
 
   async function copyTelegramLink(url: string) {
@@ -148,6 +153,15 @@ export function OnboardingRequestForm(props: {
       setActionFeedback("Enlace de Telegram copiado. Pegalo en el navegador si no se abre automaticamente.");
     } catch {
       setActionFeedback("No pudimos copiar el enlace. Intenta abrirlo de nuevo desde este boton.");
+    }
+  }
+
+  async function copyReferenceCode(referenceCode: string) {
+    try {
+      await navigator.clipboard.writeText(referenceCode);
+      setActionFeedback(`Codigo ${referenceCode} copiado. Puedes pegarlo directo en el chat de Representante.`);
+    } catch {
+      setActionFeedback("No pudimos copiar el codigo. Intenta seleccionarlo manualmente.");
     }
   }
 
@@ -185,6 +199,15 @@ export function OnboardingRequestForm(props: {
             {created.delivery.delivered
               ? `Tambien enviamos el enlace del bot al correo ${form.email}.`
               : `Si sales de esta pagina, conserva el codigo ${created.instructions.referenceCode} para retomar el acceso al bot.`}
+          </p>
+          <p className={`form-feedback ${created.delivery.delivered ? "success" : "danger"}`} style={{ margin: 0 }}>
+            {created.delivery.delivered
+              ? `Correo de acceso enviado correctamente a ${form.email}.`
+              : "No pudimos enviar el correo de acceso al bot. Sigue desde esta pantalla o pide reenvio desde backoffice."}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Si entras desde navegador y el boton <strong>Start</strong> no responde, abre el chat y envia manualmente el codigo{" "}
+            <strong>{created.instructions.referenceCode}</strong>.
           </p>
         </div>
 
@@ -270,7 +293,12 @@ export function OnboardingRequestForm(props: {
               <button
                 className="button onboarding-inline-action"
                 type="button"
-                onClick={() => openTelegramLink(created.instructions.telegramLink!)}
+                onClick={() =>
+                  openTelegramLink(
+                    created.instructions.telegramLink!,
+                    created.instructions.telegramWebLink
+                  )
+                }
               >
                 Abrir Telegram
               </button>
@@ -280,6 +308,13 @@ export function OnboardingRequestForm(props: {
                 onClick={() => copyTelegramLink(created.instructions.telegramLink!)}
               >
                 Copiar enlace
+              </button>
+              <button
+                className="button-secondary onboarding-inline-action"
+                type="button"
+                onClick={() => copyReferenceCode(created.instructions.referenceCode)}
+              >
+                Copiar codigo
               </button>
             </>
           ) : (
@@ -409,7 +444,7 @@ export function OnboardingRequestForm(props: {
       {error ? <p className="form-feedback danger">{error}</p> : null}
 
       <button className="button button-block onboarding-primary-button" type="submit" disabled={saving}>
-        {saving ? "Creando solicitud..." : "Crear solicitud de alta"}
+        {saving ? "Creando solicitud..." : "Crear solicitud de ingreso"}
       </button>
     </form>
   );

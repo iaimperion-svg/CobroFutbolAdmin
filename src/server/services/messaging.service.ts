@@ -33,7 +33,19 @@ export async function queueSystemReply(input: {
     }
   });
 
-  await getOutboundMessageQueue().add("deliver-message", { messageId: message.id });
+  await getOutboundMessageQueue().add(
+    "deliver-message",
+    { messageId: message.id },
+    {
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 3000
+      },
+      removeOnComplete: 100,
+      removeOnFail: false
+    }
+  );
 
   return message;
 }

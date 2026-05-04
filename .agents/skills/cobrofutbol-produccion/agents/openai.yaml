@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Produccion"
+  short_description: "Operacion segura en produccion"
+  default_prompt: "Use $cobrofutbol-produccion to review a production operation or deploy task for CobroFutbol."
+
+policy:
+  allow_implicit_invocation: true

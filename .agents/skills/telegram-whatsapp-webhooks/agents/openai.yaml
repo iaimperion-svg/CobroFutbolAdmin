@@ -1,0 +1,7 @@
+interface:
+  display_name: "Telegram WhatsApp Webhooks"
+  short_description: "Bots, webhooks y respuestas"
+  default_prompt: "Use $telegram-whatsapp-webhooks to work on CobroFutbol chat webhooks."
+
+policy:
+  allow_implicit_invocation: true

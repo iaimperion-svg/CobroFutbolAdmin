@@ -1,6 +1,10 @@
+import { LogoutButton } from "@/components/auth/logout-button";
 import { requireSession } from "@/server/auth/session";
+import { permissionKeys } from "@/server/auth/permissions";
 import { getMonthlyDashboard } from "@/server/services/monthly-dashboard.service";
+import { getSchoolSetupSnapshot } from "@/server/services/school-setup.service";
 import { formatCurrencyFromCents } from "@/server/utils/money";
+import { saveSchoolSetupAction } from "./actions";
 
 type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
 
@@ -141,12 +145,38 @@ function formatCompactPercent(value: number) {
   return `${value}%`;
 }
 
+function getSetupStepMeta(step: string) {
+  switch (step) {
+    case "correo_operativo":
+      return {
+        label: "Correo operativo",
+        description: "Define el correo oficial donde quieres centralizar comprobantes y avisos."
+      };
+    case "cuenta_bancaria":
+      return {
+        label: "Cuenta bancaria",
+        description: "Configura la cuenta destino para que Kapitan reconozca los pagos por escuela."
+      };
+    default:
+      return {
+        label: "Configuracion pendiente",
+        description: "Completa este dato para dejar la escuela lista."
+      };
+  }
+}
+
+const requiredSetupSteps = ["correo_operativo", "cuenta_bancaria"] as const;
+
 export default async function DashboardPage(props: { searchParams?: SearchParamsInput }) {
   const session = await requireSession();
   const params = props.searchParams ? await props.searchParams : {};
   const defaultPeriod = getCurrentPeriodLabel();
   const period = normalizePeriodLabel(readTextParam(params.period), defaultPeriod);
+  const notice = readTextParam(params.notice);
+  const error = readTextParam(params.error);
   const dashboard = await getMonthlyDashboard(session.schoolId, period);
+  const schoolSetup = await getSchoolSetupSnapshot(session.schoolId);
+  const canManageSetup = session.permissions.includes(permissionKeys.settingsManage);
   const ranking = dashboard.ranking.slice(0, 5);
   const mobileCategoryHighlights = dashboard.categoryCards
     .filter((category) => category.outstandingCents > 0)
@@ -196,6 +226,136 @@ export default async function DashboardPage(props: { searchParams?: SearchParams
 
   return (
     <div className="dashboard-screen">
+      {!schoolSetup.isComplete ? (
+        <div className="school-setup-modal-backdrop">
+          <section className="school-setup-modal-card" role="dialog" aria-modal="true">
+            <div className="school-setup-modal-header">
+              <span className="eyebrow">Configuracion inicial</span>
+              <h2 className="card-title school-setup-modal-title">
+                Completa estos datos antes de seguir usando el panel.
+              </h2>
+              <p className="school-setup-modal-copy">
+                Necesitamos el correo operativo y la cuenta bancaria principal de tu escuela para dejar la operacion
+                formal lista y para que Kapitan pueda reconocer pagos por cuenta destino.
+              </p>
+            </div>
+
+            {notice ? <p className="form-feedback success">{notice}</p> : null}
+            {error ? <p className="form-feedback danger">{error}</p> : null}
+
+            <div className="school-setup-modal-checklist">
+              {requiredSetupSteps.map((step) => {
+                const meta = getSetupStepMeta(step);
+                const completed = !schoolSetup.missingItems.includes(step);
+
+                return (
+                  <div key={step} className="school-setup-modal-checkitem">
+                    <span className={`school-setup-modal-checkdot${completed ? " is-complete" : ""}`} />
+                    <div className="school-setup-modal-checkcopy">
+                      <strong>{meta.label}</strong>
+                      <span>{completed ? "Listo" : meta.description}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {canManageSetup ? (
+              <form action={saveSchoolSetupAction} className="school-setup-form stack">
+                <div className="form-grid school-setup-form-grid">
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-operations-email">Correo operativo para comprobantes</label>
+                    <input
+                      id="setup-operations-email"
+                      name="operationsEmail"
+                      type="email"
+                      defaultValue={schoolSetup.operationsEmail ?? ""}
+                      placeholder="pagos@tuacademia.cl"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-bank-name">Banco</label>
+                    <input
+                      id="setup-bank-name"
+                      name="bankName"
+                      defaultValue={schoolSetup.defaultBankAccount?.bankName ?? ""}
+                      placeholder="Scotiabank"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-account-type">Tipo de cuenta</label>
+                    <input
+                      id="setup-account-type"
+                      name="accountType"
+                      defaultValue={schoolSetup.defaultBankAccount?.accountType ?? ""}
+                      placeholder="Cuenta Corriente"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-account-holder">Titular de la cuenta</label>
+                    <input
+                      id="setup-account-holder"
+                      name="accountHolder"
+                      defaultValue={schoolSetup.defaultBankAccount?.accountHolder ?? ""}
+                      placeholder={schoolSetup.schoolName}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="field school-setup-material-field school-setup-material-field-wide" style={{ marginBottom: 0 }}>
+                  <label htmlFor="setup-account-number">Numero de cuenta</label>
+                  <input
+                    id="setup-account-number"
+                    name="accountNumber"
+                    inputMode="numeric"
+                    placeholder={
+                      schoolSetup.defaultBankAccount?.accountNumberMasked
+                        ? `Actual: ${schoolSetup.defaultBankAccount.accountNumberMasked}`
+                        : "500343641"
+                    }
+                  />
+                  <span className="helper-text">
+                    {schoolSetup.defaultBankAccount?.accountNumberMasked
+                      ? "Si mantienes la misma cuenta, puedes dejar este campo vacio."
+                      : "Usaremos esta cuenta como referencia oficial para reconocer pagos de tu escuela."}
+                  </span>
+                </div>
+
+                <div className="school-setup-footer">
+                  <span className="school-setup-footer-copy">
+                    Cuando completes esto, el panel se habilita automaticamente.
+                  </span>
+                  <button className="button button-block" type="submit">
+                    Guardar configuracion inicial
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="school-setup-locked-copy">
+                <p className="school-setup-modal-copy">
+                  Tu usuario no tiene permisos para completar esta configuracion. Pide acceso a un administrador de la
+                  escuela o cierra sesion.
+                </p>
+                <div className="school-setup-footer">
+                  <LogoutButton />
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
+
+      <div className={`dashboard-screen-shell${!schoolSetup.isComplete ? " is-locked" : ""}`} aria-hidden={!schoolSetup.isComplete ? "true" : undefined}>
+      {schoolSetup.isComplete && notice ? <p className="form-feedback success">{notice}</p> : null}
+      {schoolSetup.isComplete && error ? <p className="form-feedback danger">{error}</p> : null}
+
       <section className="dashboard-toolbar dashboard-toolbar-executive">
         <div className="dashboard-toolbar-copy">
           <span className="eyebrow">Panel</span>
@@ -382,6 +542,129 @@ export default async function DashboardPage(props: { searchParams?: SearchParams
           </div>
         </section>
       ) : null}
+
+      {schoolSetup.isComplete ? (
+        <section className="dashboard-panel school-setup-panel">
+          <div className="dashboard-panel-header school-setup-panel-header">
+            <div>
+              <span className="eyebrow">Cuenta de la escuela</span>
+              <h3 className="card-title school-setup-title">Datos para recibir pagos</h3>
+              <p className="dashboard-panel-copy school-setup-copy">
+                Aqui puedes ver y actualizar el correo operativo y la cuenta destino que usa CobroFutbol para reconocer
+                pagos.
+              </p>
+            </div>
+            <span className="school-setup-badge">Configurada</span>
+          </div>
+
+          <div className="school-setup-summary-grid" aria-label="Datos actuales de la escuela">
+            <div className="school-setup-summary-item school-setup-summary-item-wide">
+              <span>Escuela</span>
+              <strong>{schoolSetup.schoolName}</strong>
+            </div>
+            <div className="school-setup-summary-item">
+              <span>Correo operativo</span>
+              <strong>{schoolSetup.operationsEmail ?? "Sin correo"}</strong>
+            </div>
+            <div className="school-setup-summary-item">
+              <span>Banco</span>
+              <strong>{schoolSetup.defaultBankAccount?.bankName ?? "Sin banco"}</strong>
+            </div>
+            <div className="school-setup-summary-item">
+              <span>Tipo de cuenta</span>
+              <strong>{schoolSetup.defaultBankAccount?.accountType ?? "Sin tipo"}</strong>
+            </div>
+            <div className="school-setup-summary-item">
+              <span>Titular</span>
+              <strong>{schoolSetup.defaultBankAccount?.accountHolder ?? "Sin titular"}</strong>
+            </div>
+            <div className="school-setup-summary-item">
+              <span>Numero visible</span>
+              <strong>{schoolSetup.defaultBankAccount?.accountNumberMasked ?? "Sin numero"}</strong>
+            </div>
+          </div>
+
+          {canManageSetup ? (
+            <details className="school-setup-edit-toggle">
+              <summary>Editar</summary>
+              <form action={saveSchoolSetupAction} className="school-setup-form school-setup-edit-form">
+                <div className="form-grid school-setup-edit-grid">
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-complete-operations-email">Correo operativo para comprobantes</label>
+                    <input
+                      id="setup-complete-operations-email"
+                      name="operationsEmail"
+                      type="email"
+                      defaultValue={schoolSetup.operationsEmail ?? ""}
+                      placeholder="pagos@tuacademia.cl"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-complete-bank-name">Banco</label>
+                    <input
+                      id="setup-complete-bank-name"
+                      name="bankName"
+                      defaultValue={schoolSetup.defaultBankAccount?.bankName ?? ""}
+                      placeholder="Scotiabank"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-complete-account-type">Tipo de cuenta</label>
+                    <input
+                      id="setup-complete-account-type"
+                      name="accountType"
+                      defaultValue={schoolSetup.defaultBankAccount?.accountType ?? ""}
+                      placeholder="Cuenta Corriente"
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field">
+                    <label htmlFor="setup-complete-account-holder">Titular de la cuenta</label>
+                    <input
+                      id="setup-complete-account-holder"
+                      name="accountHolder"
+                      defaultValue={schoolSetup.defaultBankAccount?.accountHolder ?? ""}
+                      placeholder={schoolSetup.schoolName}
+                      required
+                    />
+                  </div>
+
+                  <div className="field school-setup-material-field school-setup-edit-account-number">
+                    <label htmlFor="setup-complete-account-number">Numero de cuenta</label>
+                    <input
+                      id="setup-complete-account-number"
+                      name="accountNumber"
+                      inputMode="numeric"
+                      placeholder={
+                        schoolSetup.defaultBankAccount?.accountNumberMasked
+                          ? `Actual: ${schoolSetup.defaultBankAccount.accountNumberMasked}`
+                          : "500343641"
+                      }
+                    />
+                    <span className="helper-text">
+                      {schoolSetup.defaultBankAccount?.accountNumberMasked
+                        ? "Si mantienes la misma cuenta, puedes dejar este campo vacio."
+                        : "Usaremos esta cuenta como referencia oficial para reconocer pagos de tu escuela."}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="school-setup-edit-footer">
+                  <button className="button button-small" type="submit">
+                    Guardar cambios
+                  </button>
+                </div>
+              </form>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+      </div>
     </div>
   );
 }

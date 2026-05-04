@@ -1,0 +1,10 @@
+services:
+  test:
+    build:
+      context: .
+      target: test-runner
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: test
+    command: npm test

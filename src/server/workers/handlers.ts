@@ -59,7 +59,9 @@ export async function handleReceiptProcessing(receiptId: string) {
     }
 
     const ocr = await extractReceiptText(receiptId);
-    const extracted = extractPaymentDataFromText(ocr.text);
+    const extracted = extractPaymentDataFromText(ocr.text, {
+      profile: "student_payment"
+    });
 
     console.info("[worker][receipt] extraction finished", {
       receiptId,

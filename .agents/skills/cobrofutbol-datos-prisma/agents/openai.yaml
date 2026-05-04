@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Datos Prisma"
+  short_description: "Schema, seed y seguridad DB"
+  default_prompt: "Use $cobrofutbol-datos-prisma to work on CobroFutbol data model or database safety."
+
+policy:
+  allow_implicit_invocation: true

@@ -95,6 +95,46 @@ function truncateText(value: string | null | undefined, maxLength = 180) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
 }
 
+function groupAllocationsByStudent(
+  allocations: Array<{
+    amountCents: number;
+    charge: {
+      studentId: string;
+      periodLabel?: string | null;
+      student?: {
+        fullName?: string | null;
+      } | null;
+    };
+  }>
+) {
+  const grouped = new Map<
+    string,
+    {
+      studentName: string;
+      periods: string[];
+      totalAmountCents: number;
+    }
+  >();
+
+  for (const allocation of allocations) {
+    const studentId = allocation.charge.studentId;
+    const current = grouped.get(studentId) ?? {
+      studentName: allocation.charge.student?.fullName ?? "Alumno sin nombre",
+      periods: [],
+      totalAmountCents: 0
+    };
+
+    if (allocation.charge.periodLabel) {
+      current.periods.push(allocation.charge.periodLabel);
+    }
+
+    current.totalAmountCents += allocation.amountCents;
+    grouped.set(studentId, current);
+  }
+
+  return [...grouped.values()];
+}
+
 function normalizeReferenceValue(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -202,6 +242,39 @@ function ReconciliationMode(props: { mode: "auto" | "manual" | "pending" }) {
   );
 }
 
+function isReceiptReviewLocked(input: {
+  receiptStatus: string;
+  reconciliationStatus?: string | null;
+  reviewStatus?: string | null;
+}) {
+  return (
+    input.receiptStatus === "AUTO_RECONCILED" ||
+    input.receiptStatus === "REJECTED" ||
+    input.reconciliationStatus === "AUTO_CONFIRMED" ||
+    input.reconciliationStatus === "CONFIRMED" ||
+    input.reviewStatus === "RESOLVED"
+  );
+}
+
+function getReceiptReviewLockedReason(input: {
+  receiptStatus: string;
+  reconciliationStatus?: string | null;
+}) {
+  if (input.receiptStatus === "AUTO_RECONCILED" || input.reconciliationStatus === "AUTO_CONFIRMED") {
+    return "Este comprobante ya fue conciliado automaticamente. Las acciones de revision quedan bloqueadas para evitar duplicar el pago.";
+  }
+
+  if (input.reconciliationStatus === "CONFIRMED") {
+    return "Este comprobante ya fue conciliado manualmente. Las acciones de revision quedan bloqueadas para evitar cambios duplicados.";
+  }
+
+  if (input.receiptStatus === "REJECTED") {
+    return "Este comprobante ya fue rechazado. Las acciones de revision quedan bloqueadas.";
+  }
+
+  return "Este comprobante ya fue cerrado. Las acciones de revision quedan bloqueadas.";
+}
+
 export default async function ReceiptDetailPage(props: {
   params: ParamsInput;
   searchParams?: SearchParamsInput;
@@ -228,16 +301,31 @@ export default async function ReceiptDetailPage(props: {
   const selectedConfidenceMeta = selectedCandidate
     ? getConfidenceMeta(selectedCandidate.confidence)
     : null;
-  const selectedStudentName =
-    selectedCandidate?.student?.fullName ??
-    selectedCandidate?.charge?.student?.fullName ??
-    selectedReceipt.student?.fullName ??
-    "Sin sugerencia";
   const selectedConfidenceScore = selectedCandidate ? Math.round(selectedCandidate.confidence * 100) : null;
   const selectedDecisionMeta = selectedCase.reviewTask?.decisionType
     ? getManualDecisionMeta(selectedCase.reviewTask.decisionType)
     : null;
   const selectedReference = getDisplayReference(selectedReceipt);
+  const appliedAllocations = selectedReconciliation?.allocations ?? [];
+  const appliedStudents = [...new Set(
+    appliedAllocations
+      .map((allocation) => allocation.charge.student?.fullName)
+      .filter((value): value is string => Boolean(value))
+  )];
+  const selectedStudentName =
+    appliedStudents.length >= 2
+      ? `${appliedStudents.length} alumnos del grupo familiar`
+      : appliedStudents[0] ??
+        selectedCandidate?.student?.fullName ??
+        selectedCandidate?.charge?.student?.fullName ??
+        selectedReceipt.student?.fullName ??
+        "Sin sugerencia";
+  const groupedAllocations = groupAllocationsByStudent(appliedAllocations);
+  const reviewLocked = isReceiptReviewLocked({
+    receiptStatus: selectedReceipt.status,
+    reconciliationStatus: selectedReconciliation?.status ?? null,
+    reviewStatus: selectedCase.reviewTask?.status ?? null
+  });
 
   const chargeOptions = charges
     .filter((charge) => charge.outstandingCents > 0 && charge.status !== "PAID" && charge.status !== "CANCELED")
@@ -446,6 +534,27 @@ export default async function ReceiptDetailPage(props: {
             )}
           </article>
 
+          {groupedAllocations.length > 0 ? (
+            <article className="app-card stack">
+              <span className="eyebrow">Aplicacion del pago</span>
+              <div className="receipt-allocation-list">
+                {groupedAllocations.map((group) => (
+                  <div key={`${group.studentName}-${group.periods.join("-")}`} className="receipt-allocation-item">
+                    <div className="receipt-allocation-header">
+                      <strong>{group.studentName}</strong>
+                      <span>{formatCurrencyFromCents(group.totalAmountCents)}</span>
+                    </div>
+                    <p>
+                      {group.periods.length > 0
+                        ? `Periodos: ${group.periods.join(", ")}`
+                        : "Sin periodos identificados"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ) : null}
+
           <article className="app-card stack">
             <span className="eyebrow">Acciones de revisión</span>
             <ReceiptDrawerActions
@@ -453,6 +562,11 @@ export default async function ReceiptDetailPage(props: {
               defaultChargeId={selectedCandidate?.chargeId ?? null}
               existingDecisionType={selectedCase.reviewTask?.decisionType ?? null}
               chargeOptions={chargeOptions}
+              locked={reviewLocked}
+              lockedReason={getReceiptReviewLockedReason({
+                receiptStatus: selectedReceipt.status,
+                reconciliationStatus: selectedReconciliation?.status ?? null
+              })}
             />
           </article>
         </div>

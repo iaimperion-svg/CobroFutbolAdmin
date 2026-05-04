@@ -2,6 +2,8 @@ import { ChargeStatus, ContactChannel, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { AppError } from "@/server/http/errors";
 
+const monthlyChargeHorizonMonths = 12;
+
 function normalizeOptionalText(value: string | null | undefined) {
   if (value === undefined) {
     return undefined;
@@ -67,17 +69,18 @@ function normalizeBillingDay(value: number | null | undefined) {
   return value;
 }
 
-function buildCurrentMonthlyCharge(input: {
+function buildMonthlyChargeForOffset(input: {
   schoolId: string;
   studentId: string;
   guardianId: string | null;
   monthlyFeeCents: number;
   billingDay: number;
+  monthOffset: number;
 }) {
   const now = new Date();
   const dueDate = new Date(
     now.getFullYear(),
-    now.getMonth(),
+    now.getMonth() + input.monthOffset,
     input.billingDay,
     12,
     0,
@@ -114,33 +117,36 @@ async function ensureInitialMonthlyCharge(
     return;
   }
 
-  const chargeData = buildCurrentMonthlyCharge({
-    schoolId: input.schoolId,
-    studentId: input.studentId,
-    guardianId: input.guardianId,
-    monthlyFeeCents: input.monthlyFeeCents,
-    billingDay: input.billingDay
-  });
-
-  const existingCharge = await tx.charge.findFirst({
-    where: {
+  for (let monthOffset = 0; monthOffset < monthlyChargeHorizonMonths; monthOffset += 1) {
+    const chargeData = buildMonthlyChargeForOffset({
       schoolId: input.schoolId,
       studentId: input.studentId,
-      periodLabel: chargeData.periodLabel,
-      description: chargeData.description
-    },
-    select: {
-      id: true
+      guardianId: input.guardianId,
+      monthlyFeeCents: input.monthlyFeeCents,
+      billingDay: input.billingDay,
+      monthOffset
+    });
+
+    const existingCharge = await tx.charge.findFirst({
+      where: {
+        schoolId: input.schoolId,
+        studentId: input.studentId,
+        periodLabel: chargeData.periodLabel,
+        description: chargeData.description
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (existingCharge) {
+      continue;
     }
-  });
 
-  if (existingCharge) {
-    return;
+    await tx.charge.create({
+      data: chargeData
+    });
   }
-
-  await tx.charge.create({
-    data: chargeData
-  });
 }
 
 const studentDetailsInclude = {
@@ -286,26 +292,35 @@ async function syncPrimaryGuardian(
       });
 
       if (duplicateGuardian) {
-        throw new AppError(
-          "Ya existe un apoderado con ese telefono o correo. Vinculalo desde la lista existente.",
-          409
-        );
+        guardianId = duplicateGuardian.id;
+
+        await tx.guardian.update({
+          where: {
+            id: guardianId
+          },
+          data: {
+            fullName,
+            phone,
+            email,
+            preferredChannel: guardianInput.preferredChannel
+          }
+        });
+      } else {
+        const guardian = await tx.guardian.create({
+          data: {
+            schoolId,
+            fullName,
+            phone,
+            email,
+            preferredChannel: guardianInput.preferredChannel
+          },
+          select: {
+            id: true
+          }
+        });
+
+        guardianId = guardian.id;
       }
-
-      const guardian = await tx.guardian.create({
-        data: {
-          schoolId,
-          fullName,
-          phone,
-          email,
-          preferredChannel: guardianInput.preferredChannel
-        },
-        select: {
-          id: true
-        }
-      });
-
-      guardianId = guardian.id;
     }
   }
 
@@ -371,6 +386,49 @@ export async function listGuardiansForStudentForm(schoolId: string) {
       }
     }
   });
+}
+
+export async function ensureMonthlyChargeHorizonForSchool(schoolId: string) {
+  const students = await prisma.student.findMany({
+    where: {
+      schoolId,
+      active: true,
+      monthlyFeeCents: {
+        gt: 0
+      }
+    },
+    select: {
+      id: true,
+      monthlyFeeCents: true,
+      billingDay: true,
+      guardians: {
+        where: {
+          isPrimary: true
+        },
+        select: {
+          guardianId: true
+        },
+        take: 1
+      }
+    }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    for (const student of students) {
+      await ensureInitialMonthlyCharge(tx, {
+        schoolId,
+        studentId: student.id,
+        guardianId: student.guardians[0]?.guardianId ?? null,
+        monthlyFeeCents: student.monthlyFeeCents,
+        billingDay: student.billingDay
+      });
+    }
+  });
+
+  return {
+    studentsProcessed: students.length,
+    monthsPerStudent: monthlyChargeHorizonMonths
+  };
 }
 
 export async function createStudent(input: StudentWriteInput) {

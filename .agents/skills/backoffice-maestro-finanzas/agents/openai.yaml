@@ -1,0 +1,7 @@
+interface:
+  display_name: "Backoffice Maestro Finanzas"
+  short_description: "Maestro y caja CobroFutbol"
+  default_prompt: "Use $backoffice-maestro-finanzas to work on CobroFutbol master backoffice or platform finance."
+
+policy:
+  allow_implicit_invocation: true

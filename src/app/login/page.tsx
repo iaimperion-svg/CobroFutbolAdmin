@@ -3,11 +3,23 @@ import { BrandMark } from "@/components/brand/brand-mark";
 import { LoginForm } from "@/components/auth/login-form";
 import { getSession } from "@/server/auth/session";
 
-export default async function LoginPage() {
+type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
+
+function getSafeNextPath(value: string | string[] | undefined) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return "/app";
+  }
+
+  return value;
+}
+
+export default async function LoginPage(props: { searchParams?: SearchParamsInput }) {
+  const params = props.searchParams ? await props.searchParams : {};
+  const nextPath = getSafeNextPath(params.next);
   const session = await getSession();
 
   if (session) {
-    redirect("/app");
+    redirect(nextPath as never);
   }
 
   return (
@@ -47,7 +59,7 @@ export default async function LoginPage() {
               Ingresa con tu correo y la contrasena asignada por el administrador.
             </p>
           </div>
-          <LoginForm />
+          <LoginForm nextPath={nextPath} />
         </article>
       </section>
     </main>

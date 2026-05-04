@@ -12,7 +12,11 @@ import {
 import { env } from "@/server/config/env";
 import { prisma } from "@/server/db/prisma";
 import { AppError } from "@/server/http/errors";
-import { extractPaymentDataFromText } from "@/server/services/extraction.service";
+import {
+  assessOnboardingReceipt,
+  extractPaymentDataFromText,
+  type OnboardingReceiptAssessment
+} from "@/server/services/extraction.service";
 import { sendEmail } from "@/server/services/email.service";
 import { sendTelegramTextMessageWithToken, type TelegramInboundMessage } from "@/server/services/telegram.service";
 import { persistReceiptMedia } from "@/server/services/storage.service";
@@ -20,7 +24,7 @@ import { extractOnboardingReceiptText } from "@/server/services/ocr.service";
 import { formatCurrencyFromCents } from "@/server/utils/money";
 import { compactPhone } from "@/server/utils/strings";
 
-const onboardingSetupAmountCents = 3_990_000;
+const onboardingSetupAmountCents = 3_999_000;
 const activationTokenTtlMs = 60 * 60 * 1000;
 
 const permissionCatalog = [
@@ -58,6 +62,23 @@ const closedOnboardingStatuses = new Set<OnboardingRequestStatus>([
   OnboardingRequestStatus.ACTIVE
 ]);
 
+const onboardingAccessResendStatuses = new Set<OnboardingRequestStatus>([
+  OnboardingRequestStatus.PENDING_PAYMENT,
+  OnboardingRequestStatus.TELEGRAM_LINKED,
+  OnboardingRequestStatus.RECEIPT_RECEIVED,
+  OnboardingRequestStatus.UNDER_REVIEW
+]);
+
+type OnboardingAccessDeliveryRecord = {
+  delivered: boolean;
+  mode: "email" | "manual";
+  source: "created" | "resent";
+  recipientEmail: string;
+  attemptedAt: string;
+  deliveredAt: string | null;
+  lastError: string | null;
+};
+
 function getOnboardingTelegramConfig() {
   const botToken = env.ONBOARDING_TELEGRAM_BOT_TOKEN || env.TELEGRAM_BOT_TOKEN;
   const botUsername = env.ONBOARDING_TELEGRAM_BOT_USERNAME || env.TELEGRAM_BOT_USERNAME;
@@ -86,19 +107,34 @@ function buildOnboardingReceiptResultMessage(input: {
   publicCode: string;
   email: string;
   expectedAmountCents: number;
-  detectedAmountCents: number | null;
+  assessment: OnboardingReceiptAssessment;
   mediaFailure?: string | null;
   extractionFailure?: string | null;
 }) {
   const expectedAmount = formatCurrencyFromCents(input.expectedAmountCents);
+  const detectedAmount =
+    input.assessment.detectedAmountCents != null
+      ? formatCurrencyFromCents(input.assessment.detectedAmountCents)
+      : null;
 
-  if (input.detectedAmountCents === input.expectedAmountCents) {
-    return `Leimos un monto de ${expectedAmount} para la solicitud ${input.publicCode}. Coincide con el valor esperado y tu comprobante ya quedo en revision. Te avisaremos por este chat y al correo ${input.email} cuando terminemos la validacion.`;
+  if (input.assessment.amountMatchesExpected && input.assessment.referenceMatchesExpected) {
+    return `Leimos el monto esperado de ${expectedAmount} y detectamos el codigo ${input.publicCode} en tu comprobante. Coincide con el valor esperado. Ahora aprobaremos tu transferencia en los proximos minutos y te enviaremos un link de acceso a CobroFutbol.`;
   }
 
-  if (input.detectedAmountCents != null) {
-    const detectedAmount = formatCurrencyFromCents(input.detectedAmountCents);
+  if (input.assessment.amountMatchesExpected) {
+    return `Leimos un monto de ${expectedAmount} para la solicitud ${input.publicCode}. Coincide con el valor esperado. Ahora aprobaremos tu transferencia en los proximos minutos y te enviaremos un link de acceso a CobroFutbol.`;
+  }
+
+  if (input.assessment.referenceMatchesExpected && detectedAmount) {
+    return `Recibimos tu comprobante para la solicitud ${input.publicCode}. Detectamos el codigo correcto, pero el monto visible es ${detectedAmount} y el valor esperado es ${expectedAmount}. Ya lo dejamos en revision manual y te avisaremos por este chat y al correo ${input.email}. No necesitas reenviarlo por ahora.`;
+  }
+
+  if (detectedAmount) {
     return `Recibimos tu comprobante para la solicitud ${input.publicCode}. Detectamos un monto de ${detectedAmount}, pero el valor esperado es ${expectedAmount}. Ya lo dejamos en revision manual y te avisaremos por este chat y al correo ${input.email}. No necesitas reenviarlo por ahora.`;
+  }
+
+  if (input.assessment.referenceMatchesExpected) {
+    return `Recibimos tu comprobante para la solicitud ${input.publicCode}. Detectamos el codigo correcto, pero no pudimos leer el monto automaticamente. Ya lo dejamos en revision manual y te avisaremos por este chat y al correo ${input.email}. No necesitas reenviarlo por ahora.`;
   }
 
   if (input.mediaFailure || input.extractionFailure) {
@@ -106,6 +142,38 @@ function buildOnboardingReceiptResultMessage(input: {
   }
 
   return `Recibimos tu comprobante para la solicitud ${input.publicCode}. Ya quedo en revision y te avisaremos por este chat y al correo ${input.email} cuando terminemos la validacion.`;
+}
+
+function hasCompletedOnboardingReceiptProcessing(receipt: {
+  metadata?: Prisma.JsonValue | null;
+  extractedText?: string | null;
+  extractedAmountCents?: number | null;
+  extractionConfidence?: number | null;
+}) {
+  return (
+    receipt.metadata != null ||
+    receipt.extractedText != null ||
+    receipt.extractedAmountCents != null ||
+    receipt.extractionConfidence != null
+  );
+}
+
+function readJsonObject(value: Prisma.JsonValue | null | undefined): Record<string, Prisma.JsonValue> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, Prisma.JsonValue>;
+}
+
+function buildOnboardingAccessDeliveryMetadata(input: {
+  currentMetadata?: Prisma.JsonValue | null;
+  delivery: OnboardingAccessDeliveryRecord;
+}) {
+  return {
+    ...readJsonObject(input.currentMetadata),
+    accessDelivery: input.delivery
+  } as Prisma.InputJsonValue;
 }
 
 function normalizeEmail(value: string) {
@@ -201,6 +269,17 @@ function buildTelegramDeepLink(startToken: string) {
   return `https://t.me/${telegramConfig.botUsername}?start=onb_${startToken}`;
 }
 
+function buildTelegramWebDeepLink(startToken: string) {
+  const telegramConfig = getOnboardingTelegramConfig();
+
+  if (!telegramConfig.enabled || !telegramConfig.botUsername) {
+    return null;
+  }
+
+  const tgResolveUrl = `tg://resolve?domain=${telegramConfig.botUsername}&start=onb_${startToken}`;
+  return `https://web.telegram.org/k/#?tgaddr=${encodeURIComponent(tgResolveUrl)}`;
+}
+
 function buildSetupInstructions(request: {
   publicCode: string;
   expectedAmountCents: number;
@@ -208,6 +287,7 @@ function buildSetupInstructions(request: {
   telegramStartToken: string;
 }) {
   const telegramLink = buildTelegramDeepLink(request.telegramStartToken);
+  const telegramWebLink = buildTelegramWebDeepLink(request.telegramStartToken);
   const paymentDestination = {
     bankName: env.ONBOARDING_PAYMENT_BANK_NAME,
     accountType: env.ONBOARDING_PAYMENT_ACCOUNT_TYPE,
@@ -232,6 +312,7 @@ function buildSetupInstructions(request: {
     referenceCode: request.publicCode,
     academyName: request.academyName,
     telegramLink,
+    telegramWebLink,
     paymentDestination,
     steps: [
       "Transfiere el valor del Pre-calentamiento.",
@@ -271,8 +352,12 @@ async function sendOnboardingRequestEmail(input: {
     `Monto del Pre-calentamiento: ${input.instructions.amountLabel}`,
     "",
     input.instructions.telegramLink
-      ? `Ingresa al bot con este enlace: ${input.instructions.telegramLink}`
+      ? `Si estas en movil, presiona aqui para abrir Representante Bot: ${input.instructions.telegramLink}`
       : "El bot de onboarding no esta configurado en este momento. Conserva tu codigo y te ayudaremos a retomar el proceso.",
+    input.instructions.telegramWebLink
+      ? `Si estas en web, abre aqui Telegram Web: ${input.instructions.telegramWebLink}`
+      : null,
+    `Si el boton Start no responde, entra al chat del bot y envia este codigo manualmente: ${input.instructions.referenceCode}`,
     "",
     "Datos de transferencia:",
     paymentSummary,
@@ -306,9 +391,21 @@ async function sendOnboardingRequestEmail(input: {
           ? `
             <p>
               <a href="${input.instructions.telegramLink}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700">
-                Abrir bot de onboarding
+                Si estas en movil, presiona aqui: Abrir Representante Bot
               </a>
             </p>
+            ${
+              input.instructions.telegramWebLink
+                ? `
+                  <p>
+                    <a href="${input.instructions.telegramWebLink}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:700">
+                      Si estas en web, abre aqui: Telegram Web
+                    </a>
+                  </p>
+                `
+                : ""
+            }
+            <p>Si el boton Start no responde, entra al chat del bot y envia manualmente el codigo <strong>${input.instructions.referenceCode}</strong>.</p>
             <p>Si sales de la pagina, puedes volver a este correo para recuperar el acceso al bot.</p>
           `
           : "<p>El bot de onboarding no esta configurado en este momento. Conserva tu codigo y te ayudaremos a retomar el proceso.</p>"
@@ -324,6 +421,68 @@ async function sendOnboardingRequestEmail(input: {
     text,
     html
   });
+}
+
+async function sendAndTrackOnboardingAccessEmail(input: {
+  request: {
+    id: string;
+    fullName: string;
+    academyName: string;
+    email: string;
+    publicCode: string;
+    telegramStartToken: string;
+    expectedAmountCents: number;
+    metadata?: Prisma.JsonValue | null;
+  };
+  source: "created" | "resent";
+}) {
+  const instructions = buildSetupInstructions(input.request);
+  let delivery: Awaited<ReturnType<typeof sendOnboardingRequestEmail>>;
+  let errorMessage: string | null = null;
+
+  try {
+    delivery = await sendOnboardingRequestEmail({
+      email: input.request.email,
+      fullName: input.request.fullName,
+      instructions
+    });
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : "No se pudo enviar el correo";
+    console.error("[onboarding] failed to send onboarding access email", {
+      email: input.request.email,
+      publicCode: input.request.publicCode,
+      error
+    });
+    delivery = {
+      delivered: false,
+      mode: "manual"
+    };
+  }
+
+  const attemptedAt = new Date().toISOString();
+
+  await prisma.onboardingRequest.update({
+    where: { id: input.request.id },
+    data: {
+      metadata: buildOnboardingAccessDeliveryMetadata({
+        currentMetadata: input.request.metadata,
+        delivery: {
+          delivered: delivery.delivered,
+          mode: delivery.mode,
+          source: input.source,
+          recipientEmail: input.request.email,
+          attemptedAt,
+          deliveredAt: delivery.delivered ? attemptedAt : null,
+          lastError: errorMessage
+        }
+      })
+    }
+  });
+
+  return {
+    instructions,
+    delivery
+  };
 }
 
 function assertReviewSecret(secret: string | null) {
@@ -480,7 +639,7 @@ async function sendActivationEmail(input: {
     "",
     `Tu academia ${input.academyName} ya fue aprobada y tu cuenta administradora esta lista para activarse.`,
     "",
-    "Resumen de tu alta:",
+    "Resumen de tu ingreso:",
     `- Academia: ${input.academyName}`,
     `- Correo de acceso: ${input.email}`,
     `- Codigo de referencia: ${input.publicCode}`,
@@ -494,7 +653,7 @@ async function sendActivationEmail(input: {
     "",
     `Si el boton no abre, copia y pega este enlace en tu navegador: ${input.activationUrl}`,
     "",
-    "Si no solicitaste esta alta, ignora este mensaje."
+    "Si no solicitaste este ingreso, ignora este mensaje."
   ].join("\n");
 
   const html = `
@@ -502,7 +661,7 @@ async function sendActivationEmail(input: {
       <p>Hola <strong>${input.fullName}</strong>,</p>
       <p>Tu academia <strong>${input.academyName}</strong> ya fue aprobada y tu cuenta administradora esta lista para activarse.</p>
       <div style="padding:16px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;margin:20px 0">
-        <p style="margin:0 0 8px 0"><strong>Resumen de tu alta</strong></p>
+        <p style="margin:0 0 8px 0"><strong>Resumen de tu ingreso</strong></p>
         <p style="margin:0"><strong>Academia:</strong> ${input.academyName}</p>
         <p style="margin:6px 0 0 0"><strong>Correo de acceso:</strong> ${input.email}</p>
         <p style="margin:6px 0 0 0"><strong>Codigo de referencia:</strong> ${input.publicCode}</p>
@@ -520,7 +679,7 @@ async function sendActivationEmail(input: {
       </ol>
       <p>Este enlace vence el <strong>${expiryLabel}</strong>.</p>
       <p style="word-break:break-all"><strong>Enlace directo:</strong> <a href="${input.activationUrl}">${input.activationUrl}</a></p>
-      <p>Si no solicitaste esta alta, ignora este mensaje.</p>
+      <p>Si no solicitaste este ingreso, ignora este mensaje.</p>
     </div>
   `;
 
@@ -551,6 +710,74 @@ function buildActivationTelegramMessage(input: {
     `Define tu contrasena aqui: ${input.activationUrl}`,
     `Este enlace vence el ${expiryLabel}.`
   ].join(" ");
+}
+
+async function deliverActivationAccess(input: {
+  request: {
+    id: string;
+    publicCode: string;
+    academyName: string;
+    fullName: string;
+    email: string;
+    telegramChatId?: string | null;
+  };
+  activationToken: {
+    rawToken: string;
+    expiresAt: Date;
+  };
+}) {
+  const activationUrl = `${env.APP_URL}/activar?token=${encodeURIComponent(input.activationToken.rawToken)}`;
+  let delivery: Awaited<ReturnType<typeof sendEmail>>;
+
+  try {
+    delivery = await sendActivationEmail({
+      email: input.request.email,
+      fullName: input.request.fullName,
+      academyName: input.request.academyName,
+      publicCode: input.request.publicCode,
+      activationUrl,
+      expiresAt: input.activationToken.expiresAt
+    });
+  } catch (error) {
+    console.error("[onboarding] failed to send activation email", {
+      email: input.request.email,
+      publicCode: input.request.publicCode,
+      error
+    });
+    delivery = {
+      delivered: false,
+      mode: "manual"
+    };
+  }
+
+  const onboardingTelegram = getOnboardingTelegramConfig();
+  const telegramDelivered =
+    input.request.telegramChatId && onboardingTelegram.botToken
+      ? await safeSendOnboardingTelegramMessage(
+          input.request.telegramChatId,
+          buildActivationTelegramMessage({
+            fullName: input.request.fullName,
+            academyName: input.request.academyName,
+            publicCode: input.request.publicCode,
+            activationUrl,
+            expiresAt: input.activationToken.expiresAt
+          }),
+          onboardingTelegram.botToken
+        )
+      : false;
+
+  return {
+    requestId: input.request.id,
+    publicCode: input.request.publicCode,
+    academyName: input.request.academyName,
+    activationUrl,
+    activationExpiresAt: input.activationToken.expiresAt,
+    delivery,
+    telegramDelivery: {
+      delivered: telegramDelivered,
+      mode: telegramDelivered ? "telegram" : "manual"
+    }
+  };
 }
 
 export async function createOnboardingRequest(input: {
@@ -597,33 +824,40 @@ export async function createOnboardingRequest(input: {
       telegramStartToken
     }
   });
-
-  const instructions = buildSetupInstructions(request);
-  let delivery: Awaited<ReturnType<typeof sendEmail>>;
-
-  try {
-    delivery = await sendOnboardingRequestEmail({
-      email,
-      fullName,
-      instructions
-    });
-  } catch (error) {
-    console.error("[onboarding] failed to send onboarding access email", {
-      email,
-      publicCode: request.publicCode,
-      error
-    });
-    delivery = {
-      delivered: false,
-      mode: "manual"
-    };
-  }
+  const { instructions, delivery } = await sendAndTrackOnboardingAccessEmail({
+    request,
+    source: "created"
+  });
 
   return {
     request,
     instructions,
     delivery
   };
+}
+
+export async function resendOnboardingRequestAccess(input: {
+  requestId: string;
+  reviewSecret: string | null;
+}) {
+  assertReviewSecret(input.reviewSecret);
+
+  const request = await prisma.onboardingRequest.findUnique({
+    where: { id: input.requestId }
+  });
+
+  if (!request) {
+    throw new AppError("Solicitud de onboarding no encontrada", 404);
+  }
+
+  if (!onboardingAccessResendStatuses.has(request.status)) {
+    throw new AppError("Solo puedes reenviar el acceso del bot en solicitudes de ingreso aun abiertas", 409);
+  }
+
+  return sendAndTrackOnboardingAccessEmail({
+    request,
+    source: "resent"
+  });
 }
 
 function parseOnboardingStartToken(bodyText: string | undefined) {
@@ -719,7 +953,7 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
     if (!request && hasOnboardingStartCommand(message.bodyText) && !publicCode) {
       await sendTelegramTextMessageWithToken(
         message.senderHandle,
-        "Para vincular tu solicitud, vuelve a usar el boton de Telegram desde la pagina de alta o envianos aqui el codigo PG de tu solicitud.",
+        "Para vincular tu solicitud, vuelve a usar el boton de Telegram desde la pagina de ingreso o envianos aqui el codigo PG de tu solicitud.",
         onboardingTelegram.botToken
       );
 
@@ -733,8 +967,8 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
       await sendTelegramTextMessageWithToken(
         message.senderHandle,
         publicCode
-          ? `No encontramos una solicitud activa para el codigo ${publicCode}. Revisa el codigo o vuelve a la pagina de alta para generar uno nuevo.`
-          : "No encontramos una solicitud activa para ese enlace. Vuelve a la pagina de alta y genera un nuevo acceso.",
+          ? `No encontramos una solicitud activa para el codigo ${publicCode}. Revisa el codigo o vuelve a la pagina de ingreso para generar uno nuevo.`
+          : "No encontramos una solicitud activa para ese enlace. Vuelve a la pagina de ingreso y genera un nuevo acceso.",
         onboardingTelegram.botToken
       );
 
@@ -794,7 +1028,7 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
   if (!request) {
     await sendTelegramTextMessageWithToken(
       message.senderHandle,
-      "Antes de enviar el comprobante, abre el enlace de alta y vincula tu solicitud con el boton de Telegram.",
+      "Antes de enviar el comprobante, abre el enlace de ingreso y vincula tu solicitud con el boton de Telegram.",
       onboardingTelegram.botToken
     );
 
@@ -805,21 +1039,39 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
   }
 
   const attachment = message.attachments[0]!;
-  const receipt = await prisma.onboardingPaymentReceipt.create({
-    data: {
+  const existingReceipt = await prisma.onboardingPaymentReceipt.findFirst({
+    where: {
       onboardingRequestId: request.id,
       externalMessageId: message.externalId,
-      externalChatId: message.externalChatId,
-      externalUserId: message.externalUserId,
-      senderName: message.senderName,
-      senderUsername: message.senderUsername,
-      bodyText: message.bodyText,
-      fileUrl: attachment.fileUrl,
-      originalFileName: attachment.originalFileName,
-      mimeType: attachment.mimeType,
-      rawPayload: message.rawPayload as Prisma.InputJsonValue
-    }
+      externalChatId: message.externalChatId
+    },
+    orderBy: { createdAt: "asc" }
   });
+  if (existingReceipt && hasCompletedOnboardingReceiptProcessing(existingReceipt)) {
+    return {
+      receiptId: existingReceipt.id,
+      publicCode: request.publicCode,
+      duplicate: true
+    };
+  }
+
+  const receipt =
+    existingReceipt ??
+    (await prisma.onboardingPaymentReceipt.create({
+      data: {
+        onboardingRequestId: request.id,
+        externalMessageId: message.externalId,
+        externalChatId: message.externalChatId,
+        externalUserId: message.externalUserId,
+        senderName: message.senderName,
+        senderUsername: message.senderUsername,
+        bodyText: message.bodyText,
+        fileUrl: attachment.fileUrl,
+        originalFileName: attachment.originalFileName,
+        mimeType: attachment.mimeType,
+        rawPayload: message.rawPayload as Prisma.InputJsonValue
+      }
+    }));
 
   await prisma.onboardingRequest.update({
     where: { id: request.id },
@@ -831,16 +1083,19 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
     }
   });
 
-  await safeSendOnboardingTelegramMessage(
-    message.senderHandle,
-    `Recibimos tu comprobante para la solicitud ${request.publicCode}. Lo estamos revisando ahora y en breve te confirmaremos el siguiente paso por este mismo chat.`,
-    onboardingTelegram.botToken
-  );
+  if (!existingReceipt) {
+    await safeSendOnboardingTelegramMessage(
+      message.senderHandle,
+      `Recibimos tu comprobante para la solicitud ${request.publicCode}. Lo estamos revisando ahora y en breve te confirmaremos el siguiente paso por este mismo chat.`,
+      onboardingTelegram.botToken
+    );
+  }
 
-  let storagePath: string | null = null;
+  let storagePath: string | null = receipt.storagePath ?? null;
   let mediaFailure: string | null = null;
 
-  try {
+  if (!storagePath) {
+    try {
     storagePath = await persistReceiptMedia(receipt.id, {
       fileUrl: attachment.fileUrl,
       mimeType: attachment.mimeType,
@@ -854,14 +1109,15 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
         data: {
           storagePath
         }
+        });
+      }
+    } catch (error) {
+      mediaFailure = error instanceof Error ? error.message : "No se pudo guardar el archivo";
+      console.error("[onboarding][media] failed to persist receipt media", {
+        receiptId: receipt.id,
+        error: mediaFailure
       });
     }
-  } catch (error) {
-    mediaFailure = error instanceof Error ? error.message : "No se pudo guardar el archivo";
-    console.error("[onboarding][media] failed to persist receipt media", {
-      receiptId: receipt.id,
-      error: mediaFailure
-    });
   }
 
   let ocrText = "";
@@ -895,11 +1151,25 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
     });
   }
 
-  let extracted = extractPaymentDataFromText(ocrText);
+  let extracted = extractPaymentDataFromText(ocrText, {
+    profile: "onboarding_setup",
+    expectedReference: request.publicCode
+  });
 
   if (ocrText.length === 0 && attachment.originalFileName) {
-    extracted = extractPaymentDataFromText(attachment.originalFileName);
+    extracted = extractPaymentDataFromText(attachment.originalFileName, {
+      profile: "onboarding_setup",
+      expectedReference: request.publicCode
+    });
   }
+
+  const assessment = assessOnboardingReceipt({
+    extracted,
+    expectedAmountCents: request.expectedAmountCents,
+    expectedReference: request.publicCode,
+    mediaFailure,
+    extractionFailure
+  });
 
   await prisma.onboardingPaymentReceipt.update({
     where: { id: receipt.id },
@@ -907,13 +1177,11 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
       extractedText: ocrText || undefined,
       extractedAmountCents: extracted.amountCents ?? undefined,
       extractionConfidence: Math.max(extracted.confidence, ocrConfidence),
-      metadata:
-        mediaFailure != null || extractionFailure != null
-          ? ({
-              mediaFailure,
-              extractionFailure
-            } satisfies Prisma.InputJsonValue)
-          : undefined
+      metadata: {
+        mediaFailure,
+        extractionFailure,
+        assessment
+      } satisfies Prisma.InputJsonValue
     }
   });
 
@@ -923,7 +1191,7 @@ export async function handleOnboardingTelegramUpdate(message: TelegramInboundMes
       publicCode: request.publicCode,
       email: request.email,
       expectedAmountCents: request.expectedAmountCents,
-      detectedAmountCents: extracted.amountCents,
+      assessment,
       mediaFailure,
       extractionFailure
     }),
@@ -1109,58 +1377,59 @@ export async function approveOnboardingRequest(input: {
     };
   });
 
-  const activationUrl = `${env.APP_URL}/activar?token=${encodeURIComponent(result.activationToken.rawToken)}`;
-  let delivery: Awaited<ReturnType<typeof sendEmail>>;
+  return deliverActivationAccess({
+    request,
+    activationToken: result.activationToken
+  });
+}
 
-  try {
-    delivery = await sendActivationEmail({
-      email: request.email,
-      fullName: request.fullName,
-      academyName: request.academyName,
-      publicCode: request.publicCode,
-      activationUrl,
-      expiresAt: result.activationToken.expiresAt
-    });
-  } catch (error) {
-    console.error("[onboarding] failed to send activation email", {
-      email: request.email,
-      publicCode: request.publicCode,
-      error
-    });
-    delivery = {
-      delivered: false,
-      mode: "manual"
-    };
+export async function resendOnboardingActivation(input: {
+  requestId: string;
+  reviewSecret: string | null;
+}) {
+  assertReviewSecret(input.reviewSecret);
+
+  const request = await prisma.onboardingRequest.findUnique({
+    where: { id: input.requestId }
+  });
+
+  if (!request) {
+    throw new AppError("Solicitud de onboarding no encontrada", 404);
   }
 
-  const onboardingTelegram = getOnboardingTelegramConfig();
-  const telegramDelivered =
-    request.telegramChatId && onboardingTelegram.botToken
-      ? await safeSendOnboardingTelegramMessage(
-          request.telegramChatId,
-          buildActivationTelegramMessage({
-            fullName: request.fullName,
-            academyName: request.academyName,
-            publicCode: request.publicCode,
-            activationUrl,
-            expiresAt: result.activationToken.expiresAt
-          }),
-          onboardingTelegram.botToken
-        )
-      : false;
+  if (request.status === OnboardingRequestStatus.ACTIVE) {
+    throw new AppError("Esta solicitud ya fue activada", 409);
+  }
 
-  return {
-    requestId: request.id,
-    publicCode: request.publicCode,
-    academyName: request.academyName,
-    activationUrl,
-    activationExpiresAt: result.activationToken.expiresAt,
-    delivery,
-    telegramDelivery: {
-      delivered: telegramDelivered,
-      mode: telegramDelivered ? "telegram" : "manual"
-    }
-  };
+  if (request.status !== OnboardingRequestStatus.APPROVED_PENDING_ACTIVATION) {
+    throw new AppError("Solo puedes reenviar accesos de solicitudes aprobadas pendientes de activacion", 409);
+  }
+
+  if (!request.createdUserId) {
+    throw new AppError("La solicitud no tiene un usuario listo para activarse", 409);
+  }
+
+  const activationToken = await prisma.$transaction(async (tx) => {
+    const token = await createActivationToken({
+      tx,
+      onboardingRequestId: request.id,
+      userId: request.createdUserId!
+    });
+
+    await tx.onboardingRequest.update({
+      where: { id: request.id },
+      data: {
+        expiresAt: token.expiresAt
+      }
+    });
+
+    return token;
+  });
+
+  return deliverActivationAccess({
+    request,
+    activationToken
+  });
 }
 
 export async function rejectOnboardingRequest(input: {

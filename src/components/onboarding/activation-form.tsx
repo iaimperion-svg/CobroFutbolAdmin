@@ -74,7 +74,7 @@ export function ActivationForm(props: {
           <span className="eyebrow">Activacion vencida</span>
           <h1 className="app-title onboarding-panel-title">El enlace ya no esta disponible.</h1>
           <p className="muted">
-            Pidele al equipo de onboarding que te reenvie un nuevo acceso para completar el alta.
+            Pidele al equipo de onboarding que te reenvie un nuevo acceso para completar el ingreso.
           </p>
         </div>
       </section>

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   txPaymentUpdate: vi.fn(),
   txReceiptUpdate: vi.fn(),
   txReviewTaskUpdate: vi.fn(),
+  receiptResolutionPromptUpdateMany: vi.fn(),
   prismaTransaction: vi.fn(),
   queueSystemReply: vi.fn(),
   createAuditLog: vi.fn()
@@ -40,6 +41,9 @@ vi.mock("@/server/db/prisma", () => ({
     },
     charge: {
       findUnique: mocks.chargeFindUnique
+    },
+    receiptResolutionPrompt: {
+      updateMany: mocks.receiptResolutionPromptUpdateMany
     },
     $transaction: mocks.prismaTransaction
   }
@@ -167,7 +171,7 @@ describe("reconciliation.service", () => {
         where: { id: "charge-old" },
         data: expect.objectContaining({
           outstandingCents: 1000,
-          status: ChargeStatus.PENDING
+          status: ChargeStatus.OVERDUE
         })
       })
     );
@@ -198,5 +202,14 @@ describe("reconciliation.service", () => {
         })
       })
     );
+    expect(mocks.receiptResolutionPromptUpdateMany).toHaveBeenCalledWith({
+      where: {
+        receiptId: "receipt-1",
+        status: "OPEN"
+      },
+      data: {
+        status: "CANCELLED"
+      }
+    });
   });
 });

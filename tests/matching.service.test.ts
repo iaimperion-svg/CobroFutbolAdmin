@@ -51,6 +51,7 @@ describe("scoreCandidateAgainstReceipt", () => {
       senderName: "Andrea Perez",
       reference: "8891",
       bankName: "banco estado",
+      destinationAccountNumber: null,
       rawText: "Pago mensualidad marzo Ignacio Perez",
       confidence: 0.82
     };
@@ -58,5 +59,7 @@ describe("scoreCandidateAgainstReceipt", () => {
     const score = scoreCandidateAgainstReceipt(candidate, extracted);
     expect(score.confidence).toBeGreaterThan(0.7);
     expect(score.rationale).toContain("monto exacto");
+    expect(score.signals.exactAmountMatch).toBe(true);
+    expect(score.signals.senderGuardianMatch).toBe(true);
   });
 });

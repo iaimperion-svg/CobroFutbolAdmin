@@ -18,6 +18,12 @@ ENV WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN}
 COPY . .
 RUN npm run build
 
+FROM base AS test-runner
+WORKDIR /app
+COPY . .
+RUN npm run db:generate
+CMD ["npm", "test"]
+
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production

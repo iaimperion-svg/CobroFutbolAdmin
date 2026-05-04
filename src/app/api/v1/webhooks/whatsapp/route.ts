@@ -44,9 +44,6 @@ export async function POST(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const schoolSlug = searchParams.get("schoolSlug");
-    if (!schoolSlug) {
-      throw new Error("schoolSlug es requerido");
-    }
 
     const rawBody = await request.text();
     const signature = request.headers.get("x-hub-signature-256");
@@ -56,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const body = JSON.parse(rawBody) as Record<string, unknown>;
-    const result = await ingestWhatsappWebhook(body, schoolSlug);
+    const result = await ingestWhatsappWebhook(body, schoolSlug ?? undefined);
     return ok(result);
   } catch (error) {
     return fail(error);

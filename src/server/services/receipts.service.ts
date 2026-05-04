@@ -66,7 +66,19 @@ export async function listReceipts(schoolId: string) {
 }
 
 async function enqueueReceiptProcessing(receiptId: string) {
-  const job = await getReceiptProcessingQueue().add("process-receipt", { receiptId });
+  const job = await getReceiptProcessingQueue().add(
+    "process-receipt",
+    { receiptId },
+    {
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 5000
+      },
+      removeOnComplete: 100,
+      removeOnFail: false
+    }
+  );
   console.info("[receipts] queued receipt for processing", {
     receiptId,
     jobId: job.id

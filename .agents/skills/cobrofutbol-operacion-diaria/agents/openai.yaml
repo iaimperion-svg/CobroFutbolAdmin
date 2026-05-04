@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Operacion Diaria"
+  short_description: "Runbook diario operativo"
+  default_prompt: "Use $cobrofutbol-operacion-diaria to run CobroFutbol's daily operations review."
+
+policy:
+  allow_implicit_invocation: true

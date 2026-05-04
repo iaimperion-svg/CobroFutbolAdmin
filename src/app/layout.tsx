@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./backoffice/maestro/master-backoffice.css";
 import { env } from "@/server/config/env";
 
 export const metadata: Metadata = {

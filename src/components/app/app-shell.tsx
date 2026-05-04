@@ -8,7 +8,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { BrandMark } from "@/components/brand/brand-mark";
 import type { SessionPayload } from "@/server/auth/session";
 
-type NavIcon = "panel" | "revision" | "mensual" | "alumnos" | "comprobantes";
+type NavIcon = "panel" | "revision" | "mensual" | "alumnos" | "comprobantes" | "kapitan";
 
 const links = [
   {
@@ -80,11 +80,18 @@ function NavigationIcon(props: { icon: NavIcon }) {
           <path d="M7 4h10l3 3v13H4V4zM14 4v4h4M8 12h8M8 16h5" />
         </svg>
       );
+    case "kapitan":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5 8.9 5l-.7 3.4-2.8 1.9.5 3.4-2 2.7L6 19.2l3.4-.3L12 21l2.6-2.1 3.4.3 2.1-2.8-2-2.7.5-3.4-2.8-1.9L15.1 5 12 3.5Zm0 2.2 1.6.8.4 1.9-2 1.5-2-1.5.4-1.9L12 5.7Zm-4.4 5 2.2-1.5 2.2 1.6-.9 2.5H8.5l-.9-2.6Zm5.3 2.6.9-2.5 2.2-1.6 2.2 1.5-.9 2.6h-2.6l-1.8-1.3Zm-2.1 1.5h2.4l.9 2.7-2.1 1.5-2.1-1.5.9-2.7Zm-4.3.1h2.4l.9 2.6-1.3.9-2.4-.2-1.2-1.5 1.6-1.8Zm8.3 0h2.4l1.6 1.8-1.2 1.5-2.4.2-1.3-.9.9-2.6Z" />
+        </svg>
+      );
   }
 }
 
 export function AppShell(props: {
   session: SessionPayload;
+  kapitanUrl: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -164,6 +171,22 @@ export function AppShell(props: {
               </Link>
             );
           })}
+
+          <a
+            href={props.kapitanUrl}
+            className="nav-link nav-link-kapitan"
+            aria-label="Abrir acceso a Kapitan en Telegram"
+          >
+            <div className="nav-link-content">
+              <span className="nav-icon" aria-hidden="true">
+                <NavigationIcon icon="kapitan" />
+              </span>
+              <span className="nav-text">
+                <strong>Acceso a Kapitan</strong>
+                <span>Bot privado para apoderados</span>
+              </span>
+            </div>
+          </a>
         </nav>
 
         <div className="sidebar-footer">

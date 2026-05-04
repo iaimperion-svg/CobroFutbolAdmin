@@ -200,6 +200,7 @@ async function main() {
       bankName: "Banco Estado",
       accountHolder: "Academia Central SpA",
       accountNumberMasked: "****2345",
+      accountNumberReference: "50012345",
       accountType: "Cuenta Corriente",
       currency: "CLP",
       isDefault: true

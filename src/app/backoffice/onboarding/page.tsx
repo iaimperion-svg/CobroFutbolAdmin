@@ -1,18 +1,16 @@
 import { OnboardingPlan, OnboardingReceiptStatus, OnboardingRequestStatus } from "@prisma/client";
+import Link from "next/link";
 import { ManualDeliveryModal } from "@/components/onboarding/manual-delivery-modal";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { env } from "@/server/config/env";
-import {
-  hasOnboardingReviewAccess,
-  requireOnboardingReviewSecret
-} from "@/server/auth/onboarding-review";
+import { requireOnboardingReviewSecret } from "@/server/auth/onboarding-review";
 import { listOnboardingRequestsForReview } from "@/server/services/onboarding.service";
 import { formatCurrencyFromCents } from "@/server/utils/money";
 import {
   approveOnboardingReviewAction,
-  loginOnboardingReviewAction,
   logoutOnboardingReviewAction,
-  rejectOnboardingReviewAction
+  rejectOnboardingReviewAction,
+  resendOnboardingActivationAction,
+  resendOnboardingAccessAction
 } from "./actions";
 
 type SearchParamsInput = Promise<Record<string, string | string[] | undefined>>;
@@ -96,6 +94,35 @@ function truncateText(value: string | null | undefined, maxLength = 220) {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}...` : value;
 }
 
+function readAccessDelivery(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const metadata = value as Record<string, unknown>;
+  const rawDelivery = metadata.accessDelivery;
+
+  if (!rawDelivery || typeof rawDelivery !== "object" || Array.isArray(rawDelivery)) {
+    return null;
+  }
+
+  const delivery = rawDelivery as Record<string, unknown>;
+  const delivered = typeof delivery.delivered === "boolean" ? delivery.delivered : null;
+  const attemptedAt = typeof delivery.attemptedAt === "string" ? delivery.attemptedAt : null;
+  const source = typeof delivery.source === "string" ? delivery.source : null;
+
+  if (delivered == null || !attemptedAt || !source) {
+    return null;
+  }
+
+  return {
+    delivered,
+    attemptedAt,
+    source,
+    lastError: typeof delivery.lastError === "string" ? delivery.lastError : null
+  };
+}
+
 export default async function OnboardingBackofficePage(props: {
   searchParams?: SearchParamsInput;
 }) {
@@ -106,79 +133,6 @@ export default async function OnboardingBackofficePage(props: {
   const activationPublicCode = readTextParam(params.publicCode);
   const activationDeliveryMode = readTextParam(params.deliveryMode);
   const query = readTextParam(params.q);
-  const isConfigured = env.ONBOARDING_REVIEW_SECRET.length > 0;
-  const hasAccess = isConfigured ? await hasOnboardingReviewAccess() : false;
-
-  if (!isConfigured) {
-    return (
-      <main className="login-wrap onboarding-stage">
-        <section className="login-card stack onboarding-panel activation-panel">
-          <div className="stack onboarding-card-header">
-            <span className="eyebrow">Backoffice onboarding</span>
-            <h1 className="app-title onboarding-panel-title">Falta la clave interna para operar altas.</h1>
-            <p className="muted">
-              Configura <code>ONBOARDING_REVIEW_SECRET</code> para usar esta bandeja interna y
-              aprobar escuelas desde la app.
-            </p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  if (!hasAccess) {
-    return (
-      <main className="login-wrap onboarding-stage">
-        <section className="onboarding-stage-shell onboarding-grid">
-          <article className="login-card stack onboarding-brief">
-            <span className="eyebrow">Backoffice onboarding</span>
-            <h1 className="app-title onboarding-side-title">Aprueba escuelas sin salir del flujo real.</h1>
-            <p className="muted onboarding-side-copy">
-              Aqui revisas la solicitud, validas el comprobante y entregas el acceso final del portal.
-            </p>
-
-            <ol className="onboarding-brief-list">
-              <li>
-                <strong>Revisa la solicitud</strong>
-                <span>Confirma datos, plan y contexto comercial.</span>
-              </li>
-              <li>
-                <strong>Valida el comprobante</strong>
-                <span>Comprueba archivo y monto antes de aprobar.</span>
-              </li>
-              <li>
-                <strong>Entrega activacion</strong>
-                <span>Comparte el enlace si el correo aun no esta configurado.</span>
-              </li>
-            </ol>
-          </article>
-
-          <form action={loginOnboardingReviewAction} className="login-card stack onboarding-form onboarding-panel">
-            <div className="stack onboarding-card-header">
-              <span className="eyebrow">Ingreso interno</span>
-              <h2 className="app-title onboarding-panel-title">Entra a la bandeja de altas</h2>
-              <p className="muted">
-                Usa la clave interna de onboarding para operar revisiones y activaciones.
-              </p>
-            </div>
-
-            {error ? <p className="form-feedback danger">{error}</p> : null}
-            {notice ? <p className="form-feedback success">{notice}</p> : null}
-
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="review-secret">Clave interna</label>
-              <input id="review-secret" name="secret" type="password" autoComplete="current-password" required />
-            </div>
-
-            <button className="button button-block onboarding-primary-button" type="submit">
-              Entrar a onboarding
-            </button>
-          </form>
-        </section>
-      </main>
-    );
-  }
-
   const reviewSecret = await requireOnboardingReviewSecret();
   const allRequests = await listOnboardingRequestsForReview(reviewSecret);
   const normalizedQuery = normalizeText(query);
@@ -247,37 +201,48 @@ export default async function OnboardingBackofficePage(props: {
           <div className="onboarding-review-topbar">
             <div className="stack onboarding-review-heading" style={{ gap: 6 }}>
               <span className="eyebrow">Backoffice onboarding</span>
-              <h1 className="shell-title onboarding-review-title">Solicitudes de alta</h1>
+              <h1 className="shell-title onboarding-review-title">Solicitudes de ingreso</h1>
             </div>
 
-            <form className="onboarding-review-search-form" method="get">
-              <label htmlFor="onboarding-search" className="onboarding-review-search-label">
+            <form className="onboarding-review-search-form backoffice-material-inline-form" method="get">
+              <label htmlFor="onboarding-search" className="onboarding-review-search-label backoffice-material-label">
                 Buscar solicitud
               </label>
-              <div className="onboarding-review-search-row">
+              <div className="onboarding-review-search-row backoffice-material-row">
                 <input
                   id="onboarding-search"
                   name="q"
                   type="search"
                   defaultValue={query}
                   placeholder="Codigo, academia o director"
+                  className="backoffice-material-input"
                 />
-                <button className="button-secondary button-small" type="submit">
+                <button className="backoffice-action-button backoffice-action-button-primary" type="submit">
                   Buscar
                 </button>
                 {query ? (
-                  <a href="/backoffice/onboarding" className="button-secondary button-small">
+                  <a href="/backoffice/onboarding" className="backoffice-action-link">
                     Limpiar
                   </a>
                 ) : null}
               </div>
             </form>
 
-            <form action={logoutOnboardingReviewAction} className="onboarding-review-inline-exit">
-              <button className="button-secondary button-small" type="submit">
-                Salir
-              </button>
-            </form>
+            <div className="onboarding-review-inline-actions">
+              <a href="/backoffice/maestro" className="backoffice-action-link">
+                Ver maestro
+              </a>
+
+              <Link href="/backoffice/maestro/proyecto" className="backoffice-action-link">
+                Ver avance
+              </Link>
+
+              <form action={logoutOnboardingReviewAction} className="onboarding-review-inline-exit">
+                <button className="backoffice-action-link backoffice-action-button" type="submit">
+                  Salir
+                </button>
+              </form>
+            </div>
           </div>
 
           {notice ? <p className="form-feedback success">{notice}</p> : null}
@@ -289,12 +254,12 @@ export default async function OnboardingBackofficePage(props: {
             <article className="app-card table-empty onboarding-review-empty">
               <span className="eyebrow">Sin solicitudes</span>
               <h2 className="card-title">
-                {query ? "No encontramos resultados para tu busqueda." : "Todavia no entran altas nuevas."}
+                {query ? "No encontramos resultados para tu busqueda." : "Todavia no entran solicitudes nuevas."}
               </h2>
               <p className="muted">
                 {query
                   ? "Prueba con otro codigo, academia, correo o telefono."
-                  : "Cuando un director complete /alta, la solicitud aparecera aqui."}
+                  : "Cuando un director complete el formulario de ingreso, la solicitud aparecera aqui."}
               </p>
             </article>
           ) : (
@@ -320,7 +285,11 @@ export default async function OnboardingBackofficePage(props: {
                       const amountMismatch =
                         latestReceipt?.extractedAmountCents != null &&
                         latestReceipt.extractedAmountCents !== request.expectedAmountCents;
+                      const accessDelivery = readAccessDelivery(request.metadata);
                       const canApprove = !!latestReceipt && !blockedApprovalStatuses.has(request.status);
+                      const canResendAccess = pendingStatuses.has(request.status);
+                      const canResendActivation =
+                        request.status === OnboardingRequestStatus.APPROVED_PENDING_ACTIVATION;
                       const canReject = !blockedRejectionStatuses.has(request.status);
 
                       return (
@@ -351,6 +320,25 @@ export default async function OnboardingBackofficePage(props: {
                                   Motivo: {truncateText(request.rejectionReason, 80)}
                                 </span>
                               ) : null}
+                              {accessDelivery ? (
+                                <>
+                                  <span className="table-secondary">
+                                    Correo acceso: {accessDelivery.delivered ? "enviado" : "no enviado"}
+                                  </span>
+                                  <span className="table-secondary">
+                                    Ultimo intento: {formatDateTime(accessDelivery.attemptedAt)}
+                                  </span>
+                                  {!accessDelivery.delivered && accessDelivery.lastError ? (
+                                    <span className="table-secondary onboarding-table-warning">
+                                      {truncateText(accessDelivery.lastError, 90)}
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <span className="table-secondary onboarding-table-warning">
+                                  Correo acceso sin confirmacion de entrega.
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td>
@@ -437,7 +425,10 @@ export default async function OnboardingBackofficePage(props: {
                               {canApprove ? (
                                 <form action={approveOnboardingReviewAction}>
                                   <input type="hidden" name="requestId" value={request.id} />
-                                  <button className="button button-small button-block" type="submit">
+                                  <button
+                                    className="button button-small button-block backoffice-table-action backoffice-table-action-primary"
+                                    type="submit"
+                                  >
                                     Aprobar
                                   </button>
                                 </form>
@@ -453,6 +444,30 @@ export default async function OnboardingBackofficePage(props: {
                                 </span>
                               )}
 
+                              {canResendActivation ? (
+                                <form action={resendOnboardingActivationAction}>
+                                  <input type="hidden" name="requestId" value={request.id} />
+                                  <button
+                                    className="button-secondary button-small button-block backoffice-table-action"
+                                    type="submit"
+                                  >
+                                    Reenviar activacion
+                                  </button>
+                                </form>
+                              ) : null}
+
+                              {canResendAccess ? (
+                                <form action={resendOnboardingAccessAction}>
+                                  <input type="hidden" name="requestId" value={request.id} />
+                                  <button
+                                    className="button-secondary button-small button-block backoffice-table-action"
+                                    type="submit"
+                                  >
+                                    Reenviar acceso bot
+                                  </button>
+                                </form>
+                              ) : null}
+
                               {canReject ? (
                                 <form action={rejectOnboardingReviewAction} className="onboarding-inline-reject">
                                   <input type="hidden" name="requestId" value={request.id} />
@@ -460,9 +475,13 @@ export default async function OnboardingBackofficePage(props: {
                                     id={`reject-${request.id}`}
                                     name="reason"
                                     placeholder="Motivo"
+                                    className="backoffice-material-input backoffice-material-input-dense"
                                     required
                                   />
-                                  <button className="button-secondary button-small button-block" type="submit">
+                                  <button
+                                    className="button-secondary button-small button-block backoffice-table-action"
+                                    type="submit"
+                                  >
                                     Rechazar
                                   </button>
                                 </form>

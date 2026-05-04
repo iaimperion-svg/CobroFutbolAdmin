@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol Validar"
+  short_description: "Validacion con evidencia real"
+  default_prompt: "Use $cobrofutbol-validar to run or prepare CobroFutbol's validation matrix."
+
+policy:
+  allow_implicit_invocation: true

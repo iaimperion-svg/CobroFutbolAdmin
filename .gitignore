@@ -4,13 +4,30 @@ node_modules
 coverage
 dist
 storage
+
+# Environment and secrets
 .env
-.env.production
-.env.staging
-# Env files adicionales (Next.js / Node)
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.production.example
+docs/codex-secrets.local.md
+*.pem
+*.key
+*.crt
+
+# Backups and database dumps
+backups/
+backup/
+/ops/tmp/
+*.dump
+*.sql
+*.sql.gz
+*.tar.gz
+
+# Logs and build artifacts
 *.log
 *.tsbuildinfo
+
+# Local agent workspaces and remote snapshots
+_remote_patch/
+_adok_audit/

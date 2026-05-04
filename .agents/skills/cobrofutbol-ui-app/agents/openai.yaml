@@ -1,0 +1,7 @@
+interface:
+  display_name: "CobroFutbol UI App"
+  short_description: "Frontend y pantallas operativas"
+  default_prompt: "Use $cobrofutbol-ui-app to work on CobroFutbol frontend screens."
+
+policy:
+  allow_implicit_invocation: true

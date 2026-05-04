@@ -124,9 +124,17 @@ describe("createInboundMessageWithReceipts", () => {
         })
       })
     );
-    expect(mocks.queueAdd).toHaveBeenCalledWith("process-receipt", {
-      receiptId: "receipt-1"
-    });
+    expect(mocks.queueAdd).toHaveBeenCalledWith(
+      "process-receipt",
+      {
+        receiptId: "receipt-1"
+      },
+      expect.objectContaining({
+        attempts: 3,
+        removeOnComplete: 100,
+        removeOnFail: false
+      })
+    );
   });
 
   it("devuelve el mensaje existente si Telegram reintenta el mismo update", async () => {

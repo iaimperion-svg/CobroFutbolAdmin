@@ -61,9 +61,13 @@ export function ReceiptDrawerActions(props: {
   defaultChargeId?: string | null;
   existingDecisionType?: string | null;
   chargeOptions: ChargeOption[];
+  locked?: boolean;
+  lockedReason?: string;
 }) {
   const router = useRouter();
-  const [activeMode, setActiveMode] = useState<ActionMode>("approve");
+  const [activeMode, setActiveMode] = useState<ActionMode>(
+    props.locked ? "note" : props.defaultChargeId ? "approve" : "manual-payment"
+  );
   const [savingAction, setSavingAction] = useState<ActionMode | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"success" | "error">("success");
@@ -116,10 +120,17 @@ export function ReceiptDrawerActions(props: {
     successMessage: string,
     confirmationMessage?: string
   ) {
+    if (props.locked && mode !== "note") {
+      setFeedbackTone("error");
+      setFeedback("Este comprobante ya esta cerrado. Las acciones de revision estan bloqueadas.");
+      return false;
+    }
+
     if (confirmationMessage && !window.confirm(confirmationMessage)) {
       return false;
     }
 
+    try {
     setSavingAction(mode);
     setFeedback(null);
 
@@ -144,10 +155,25 @@ export function ReceiptDrawerActions(props: {
     setFeedback(successMessage);
     router.refresh();
     return true;
+    } catch {
+      setSavingAction(null);
+      setFeedbackTone("error");
+      setFeedback("No se pudo conectar con el servidor. Intenta nuevamente.");
+      return false;
+    }
   }
 
   return (
     <div className="drawer-actions-block">
+      {props.locked ? (
+        <div className="drawer-copy-block compact">
+          <p>
+            {props.lockedReason ??
+              "Este comprobante ya fue cerrado. Las acciones de revision quedan bloqueadas para evitar duplicar o modificar la conciliacion."}
+          </p>
+        </div>
+      ) : null}
+
       {currentDecisionMeta ? (
         <div className="drawer-current-decision">
           <span className="drawer-label">Última resolución</span>
@@ -156,21 +182,41 @@ export function ReceiptDrawerActions(props: {
       ) : null}
 
       <div className="drawer-action-tabs">
-        {actionTabs.map((tab) => (
+        {actionTabs.map((tab) => {
+          const tabLocked = Boolean(props.locked && tab.mode !== "note");
+
+          return (
           <button
             key={tab.mode}
             type="button"
             className={`drawer-tab drawer-tab-minimal${activeMode === tab.mode ? " active" : ""}`}
-            onClick={() => setActiveMode(tab.mode)}
+            disabled={tabLocked}
+            onClick={() => {
+              if (tabLocked) {
+                return;
+              }
+
+              if (tab.mode === "approve" && !suggestedCharge) {
+                setFeedbackTone("error");
+                setFeedback("Este comprobante no tiene una sugerencia automatica. Usa Pago manual o Reasignar.");
+                setActiveMode("manual-payment");
+                return;
+              }
+
+              setFeedback(null);
+              setActiveMode(tab.mode);
+            }}
+            aria-disabled={tabLocked || (tab.mode === "approve" && !suggestedCharge)}
             aria-pressed={activeMode === tab.mode}
           >
             {tab.label}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="drawer-action-panel">
-        {activeMode === "approve" ? (
+        {activeMode === "approve" && !props.locked ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="drawer-copy-block compact">
               <p>
@@ -179,6 +225,24 @@ export function ReceiptDrawerActions(props: {
                   : "No hay un cargo sugerido para aprobar automáticamente."}
               </p>
               {suggestedCharge ? <strong>{formatChargeLabel(suggestedCharge)}</strong> : null}
+              {!suggestedCharge ? (
+                <div className="drawer-inline-actions">
+                  <button
+                    type="button"
+                    className="button-secondary button-small"
+                    onClick={() => setActiveMode("manual-payment")}
+                  >
+                    Ir a pago manual
+                  </button>
+                  <button
+                    type="button"
+                    className="button-secondary button-small"
+                    onClick={() => setActiveMode("reassign")}
+                  >
+                    Ir a reasignar
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor={`approve-notes-${props.receiptId}`}>Observación de cierre</label>
@@ -212,7 +276,7 @@ export function ReceiptDrawerActions(props: {
           </div>
         ) : null}
 
-        {activeMode === "reject" ? (
+        {activeMode === "reject" && !props.locked ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor={`reject-reason-${props.receiptId}`}>Motivo del rechazo</label>
@@ -260,7 +324,7 @@ export function ReceiptDrawerActions(props: {
           </div>
         ) : null}
 
-        {activeMode === "reassign" ? (
+        {activeMode === "reassign" && !props.locked ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor={`reassign-search-${props.receiptId}`}>Buscar alumno o apoderado</label>
@@ -323,7 +387,7 @@ export function ReceiptDrawerActions(props: {
           </div>
         ) : null}
 
-        {activeMode === "manual-payment" ? (
+        {activeMode === "manual-payment" && !props.locked ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label htmlFor={`manual-search-${props.receiptId}`}>Buscar cargo pendiente</label>
@@ -381,7 +445,7 @@ export function ReceiptDrawerActions(props: {
           </div>
         ) : null}
 
-        {activeMode === "reprocess" ? (
+        {activeMode === "reprocess" && !props.locked ? (
           <div className="stack" style={{ gap: 12 }}>
             <div className="drawer-copy-block compact">
               <p>Reprocesar vuelve a correr el matching del comprobante y refresca sus sugerencias.</p>

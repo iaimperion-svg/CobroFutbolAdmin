@@ -8,6 +8,8 @@ const supportedOcrMimePrefixes = ["image/"];
 const supportedOcrExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"]);
 const searchablePayloadKeyPattern =
   /caption|text|message|description|body|sender|remitente|referencia|reference|monto|amount|fecha|date|bank|banco/i;
+const tesseractWorkerPath = resolve(process.cwd(), "node_modules", "tesseract.js", "src", "worker-script", "node", "index.js");
+const tesseractLangPath = resolve(env.OCR_LANG_PATH);
 
 function normalizeExtractedText(text: string) {
   return text
@@ -64,23 +66,87 @@ function canRunImageOcr(receipt: { storagePath: string | null; mimeType: string 
 async function readTextFromStoredImage(storagePath: string) {
   try {
     const imageBuffer = await readFile(storagePath);
-    const result = await Tesseract.recognize(imageBuffer, "spa+eng", {
-      langPath: resolve(env.OCR_LANG_PATH),
-      gzip: false
-    });
-    const text = normalizeExtractedText(result.data.text ?? "");
+    const ocrResults = [await readOcrFromImageBuffer(imageBuffer)];
+    const enhancedImageBuffer = await createEnhancedOcrImageBuffer(imageBuffer, storagePath);
+
+    if (enhancedImageBuffer) {
+      ocrResults.push(await readOcrFromImageBuffer(enhancedImageBuffer));
+    }
+
+    const text = mergeOcrResultText(ocrResults.map((result) => result.text));
 
     if (text.length < 8) {
       return null;
     }
 
-    const confidence = Math.max(0.18, Math.min(0.97, (result.data.confidence ?? 0) / 100));
+    const confidence = Math.max(
+      0.18,
+      Math.min(0.97, Math.max(...ocrResults.map((result) => result.confidence)) / 100)
+    );
     return { text, confidence };
   } catch (error) {
     const message = error instanceof Error ? error.message : "error desconocido";
     console.warn("[ocr] image OCR failed", { storagePath, error: message });
     return null;
   }
+}
+
+async function readOcrFromImageBuffer(imageBuffer: Buffer) {
+  const options = {
+    workerPath: tesseractWorkerPath,
+    langPath: tesseractLangPath,
+    gzip: false,
+    tessedit_pageseg_mode: "6"
+  } as unknown as Partial<Tesseract.WorkerOptions>;
+  const result = await Tesseract.recognize(imageBuffer, "spa+eng", options);
+
+  return {
+    text: normalizeExtractedText(result.data.text ?? ""),
+    confidence: result.data.confidence ?? 0
+  };
+}
+
+async function createEnhancedOcrImageBuffer(imageBuffer: Buffer, storagePath: string) {
+  try {
+    const sharp = (await import("sharp")).default;
+    const metadata = await sharp(imageBuffer).metadata();
+    const width = metadata.width ? Math.min(metadata.width * 2, 1800) : undefined;
+    let pipeline = sharp(imageBuffer).grayscale().normalize().sharpen();
+
+    if (width) {
+      pipeline = pipeline.resize({ width });
+    }
+
+    return await pipeline.png().toBuffer();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "error desconocido";
+    console.warn("[ocr] enhanced image preprocessing skipped", { storagePath, error: message });
+    return null;
+  }
+}
+
+function mergeOcrResultText(texts: string[]) {
+  const lines = texts.flatMap((text) => normalizeExtractedText(text).split("\n"));
+  const seen = new Set<string>();
+
+  return normalizeExtractedText(
+    lines
+      .map((line) => line.trim())
+      .filter((line) => {
+        if (!line) {
+          return false;
+        }
+
+        const key = line.toLowerCase().replace(/\s+/g, " ");
+        if (seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      })
+      .join("\n")
+  );
 }
 
 async function extractTextFromStoredReceipt(input: {
@@ -128,6 +194,10 @@ async function extractTextFromStoredReceipt(input: {
 }
 
 export type StoredReceiptTextInput = Parameters<typeof extractTextFromStoredReceipt>[0];
+
+export async function extractReceiptTextFromInput(input: StoredReceiptTextInput) {
+  return extractTextFromStoredReceipt(input);
+}
 
 export async function extractReceiptText(receiptId: string) {
   const receipt = await prisma.receipt.findUnique({

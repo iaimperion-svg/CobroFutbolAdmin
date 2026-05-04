@@ -49,7 +49,7 @@ export function OnboardingProgressCard(props: OnboardingProgressCardProps) {
         })}
       </ol>
 
-      <p className="onboarding-brief-note">Pensado para completar el alta sin ruido y sin pasos innecesarios.</p>
+      <p className="onboarding-brief-note">Pensado para completar el ingreso sin ruido y sin pasos innecesarios.</p>
     </article>
   );
 }

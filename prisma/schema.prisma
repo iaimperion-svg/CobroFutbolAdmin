@@ -44,6 +44,7 @@ enum ReceiptStatus {
   PROCESSING
   MATCHED
   AUTO_RECONCILED
+  AWAITING_PAYER_REPLY
   MANUAL_REVIEW
   REJECTED
   FAILED
@@ -79,6 +80,21 @@ enum MatchType {
   STUDENT
   GUARDIAN
   CHARGE
+}
+
+enum ReceiptResolutionPromptType {
+  SELECT_PAYER
+  SELECT_STUDENT
+  SELECT_PERIOD
+  CONFIRM_PARTIAL_PAYMENT
+  CONFIRM_OVERPAYMENT
+}
+
+enum ReceiptResolutionPromptStatus {
+  OPEN
+  ANSWERED
+  EXPIRED
+  CANCELLED
 }
 
 enum MessageChannel {
@@ -125,11 +141,21 @@ enum OnboardingReceiptStatus {
   FAILED
 }
 
+enum PlatformInvoiceStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELED
+}
+
 model School {
   id               String                 @id @default(cuid())
   name             String
   slug             String                 @unique
   legalName        String?
+  operationsEmail  String?
+  setupCompletedAt DateTime?
   locale           String                 @default("es-CL")
   timezone         String                 @default("America/Santiago")
   currency         String                 @default("CLP")
@@ -152,6 +178,9 @@ model School {
   reviewNotes      ReviewNote[]
   candidateMatches ReceiptCandidateMatch[]
   onboardingRequests OnboardingRequest[]
+  receiptResolutionPrompts ReceiptResolutionPrompt[]
+  platformInvoices         PlatformInvoice[]
+  platformPayments         PlatformPayment[]
 }
 
 model Conversation {
@@ -312,6 +341,7 @@ model BankAccount {
   bankName            String
   accountHolder       String
   accountNumberMasked String
+  accountNumberReference String?
   accountType         String
   routingNumber       String?
   currency            String      @default("CLP")
@@ -409,6 +439,7 @@ model Receipt {
   reviewTask           ReviewTask?
   reviewNotes          ReviewNote[]
   candidateMatches     ReceiptCandidateMatch[]
+  resolutionPrompts    ReceiptResolutionPrompt[]
 
   @@index([schoolId, status, receivedAt])
   @@index([schoolId, guardianId])
@@ -514,6 +545,29 @@ model ReceiptCandidateMatch {
   @@index([schoolId, receiptId, confidence])
 }
 
+model ReceiptResolutionPrompt {
+  id             String                      @id @default(cuid())
+  schoolId       String
+  receiptId      String
+  type           ReceiptResolutionPromptType
+  status         ReceiptResolutionPromptStatus @default(OPEN)
+  questionText   String
+  options        Json?
+  context        Json?
+  selectedOption String?
+  freeTextAnswer String?
+  askedAt        DateTime                    @default(now())
+  answeredAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  school         School                      @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  receipt        Receipt                     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, status, askedAt])
+  @@index([receiptId, status, askedAt])
+}
+
 model Message {
   id           String           @id @default(cuid())
   schoolId     String
@@ -563,6 +617,45 @@ model AuditLog {
   @@index([entityType, entityId])
 }
 
+model PlatformInvoice {
+  id                  String                @id @default(cuid())
+  schoolId            String
+  periodLabel         String
+  plan                OnboardingPlan
+  expectedAmountCents Int
+  outstandingCents    Int
+  status              PlatformInvoiceStatus @default(PENDING)
+  issuedAt            DateTime
+  dueAt               DateTime
+  paidAt              DateTime?
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  school              School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  payments            PlatformPayment[]
+
+  @@unique([schoolId, periodLabel])
+  @@index([schoolId, status, dueAt])
+  @@index([periodLabel, status])
+}
+
+model PlatformPayment {
+  id                String          @id @default(cuid())
+  schoolId          String
+  platformInvoiceId String
+  amountCents       Int
+  paidAt            DateTime
+  receiptReference  String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  school            School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  platformInvoice   PlatformInvoice @relation(fields: [platformInvoiceId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, paidAt])
+  @@index([platformInvoiceId, paidAt])
+}
+
 model OnboardingRequest {
   id                  String                   @id @default(cuid())
   schoolId            String?                  @unique
@@ -588,6 +681,7 @@ model OnboardingRequest {
   activatedAt         DateTime?
   expiresAt           DateTime?
   rejectionReason     String?
+  metadata            Json?
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   school              School?                  @relation(fields: [schoolId], references: [id], onDelete: SetNull)

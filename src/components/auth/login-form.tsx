@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+export function LoginForm(props: { nextPath?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +32,7 @@ export function LoginForm() {
         throw new Error(payload.error ?? "No se pudo iniciar sesión");
       }
 
-      router.push("/app");
+      router.push((props.nextPath ?? "/app") as never);
       router.refresh();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Ocurrió un error inesperado");
